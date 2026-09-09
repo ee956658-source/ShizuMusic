@@ -8,12 +8,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Required ──────────────────────────────────────────────────────────────────
-API_ID          = int(os.environ["API_ID"])
-API_HASH        = os.environ["API_HASH"]
+API_ID          = int(os.environ["30804214"])
+API_HASH        = os.environ["868c14bb613d143a45d1eaa5a17d8e1b"]
 BOT_TOKEN       = os.environ["BOT_TOKEN"]
 STRING_SESSION  = os.environ["STRING_SESSION"]
-MONGO_DB_URL    = os.environ["MONGO_DB_URL"]
-OWNER_ID        = int(os.environ["OWNER_ID"])
+MONGO_DB_URL    = os.environ["mongodb+srv://la045514_db_user:Zm40Moe01trMFw71@cluster1.0r0xacx.mongodb.net/?appName=Cluster1"]
+OWNER_ID        = int(os.environ["m"])
 
 # ── Optional ──────────────────────────────────────────────────────────────────
 BOT_NAME         = os.getenv("BOT_NAME", "Shizu Music")
