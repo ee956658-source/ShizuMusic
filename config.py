@@ -20,9 +20,9 @@ BOT_NAME         = os.getenv("BOT_NAME", "YORXMUSIC")
 BOT_LINK         = os.getenv("BOT_LINK", "https://t.me/YorMusicXbot")
 UPDATES_CHANNEL  = os.getenv("UPDATES_CHANNEL", "https://t.me/VIP_PFP_SP")
 SUPPORT_GROUP    = os.getenv("SUPPORT_GROUP", "https://t.me/zpaveldurov")
-LOGGER_ID        = int(os.getenv("LOGGER_ID", "0"))
+LOGGER_ID        = int(os.getenv("LOGGER_ID", "yor_lpgin"))
 PING_IMG_URL     = os.getenv("PING_IMG_URL", "https://files.catbox.moe/ddzvc0.jpg",)
-SESSION_NAME     = os.getenv("SESSION_NAME", "ShizuMusic")
+SESSION_NAME     = os.getenv("SESSION_NAME", "yorxmusic")
 PORT             = int(os.getenv("PORT", 10000))
 
 # ── NSFW Moderation API ─────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ PORT             = int(os.getenv("PORT", 10000))
 
 #── Start ───────────────────────────────────────────────────────────────────────
 START_PHOTOS = [
-    "https://files.catbox.moe/jgt2vm.png",
+    "https://files.catbox.moe/sfqdhn.jpg",
 ]
 
 # ── Limits ────────────────────────────────────────────────────────────────────
