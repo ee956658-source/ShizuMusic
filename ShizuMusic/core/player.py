@@ -82,23 +82,19 @@ def _support_updates_pills() -> str:
 # ─────────────────────────────────────────────
 
 
-def _now_playing_content(song: dict) -> str:
-    """Now-playing rich message content."""
+def _def _now_playing_content(song: dict) -> str:
+    """Now-playing message content."""
 
     thumb = song.get("thumbnail")
 
     return (
-        rich_heading(
-            "🎧 sʜɪᴢᴜ ᴍᴜsɪᴄ — ɴᴏᴡ ᴘʟᴀʏɪɴɢ",
-            level=3
-        )
-        + (rich_img(thumb) if thumb else "")
-        + rich_kv_table([
-            ("ᴛɪᴛʟᴇ", rich_esc(short(song["title"]))),
-            ("ᴅᴜʀᴀᴛɪᴏɴ", rich_esc(song.get("duration", "?"))),
-            ("ʙʏ", rich_esc(song["requester"])),
-        ])
-        + _support_updates_pills()
+        (rich_img(thumb) if thumb else "")
+        + "<p>"
+        + "<small>streaming 🎶</small><br>"
+        + f"<small>Title: {rich_esc(short(song['title']))}</small><br>"
+        + f"<small>Duration: {rich_esc(song.get('duration', '?'))}</small><br>"
+        + f"<small>Requested by: {rich_esc(song['requester'])}</small>"
+        + "</p>"
     )
 
 
