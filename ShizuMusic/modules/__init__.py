@@ -8,6 +8,7 @@
 
 ALL_MODULES = [
     "autoplay",
+    "afk"
     "bot",
     "block",
     "effects",
