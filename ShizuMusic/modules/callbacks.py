@@ -339,12 +339,13 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
             pass
 
     # ── HELP ────────────────────────────────────────────────────────────[...]
-    elif data == "show_help":
+        elif data == "show_help":
         await cbq.answer()
-        uid  = cbq.from_user.id
+        uid = cbq.from_user.id
         name = sanitize_display_name(cbq.from_user.first_name)
         photo = random.choice(config.START_PHOTOS)
-                content = (
+
+        content = (
             rich_heading('📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ', level=3)
             + rich_img(photo)
             + rich_note(
@@ -357,22 +358,25 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
                 "ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /"
             )
             + _support_updates_pills()
-)
-        + rich_note(f"ᴘᴏᴡᴇʀᴇᴅ ʙʏ » <a href='https://t.me/PBXCHATS'>sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a>")
-        + _support_updates_pills()
         )
+
         if getattr(cbq.message, "photo", None):
-            # /start's message is a photo — can't edit its caption into a
-            # true rich message, so swap it out for one.
             try:
                 await cbq.message.delete()
             except Exception:
                 pass
-            await rich_send(bot, chat_id, content, reply_markup=_HELP_KB)
+            await rich_send(
+                bot,
+                chat_id,
+                content,
+                reply_markup=_HELP_KB
+            )
         else:
-            await rich_edit(cbq.message, content, reply_markup=_HELP_KB)
-
-    elif data == "go_back":
+            await rich_edit(
+                cbq.message,
+                content,
+                reply_markup=_HELP_KB
+            )
         await _go_back(cbq)
 
     elif data.startswith("help_"):
