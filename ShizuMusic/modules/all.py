@@ -1,18 +1,13 @@
 import asyncio
 
-from pyrogram import filters
+from pyrogram import filters, enums
 from pyrogram.types import Message
 
-from ShizuMusic import bot, assistant
+from ShizuMusic import bot
 import config
 
 
-# chat_id: True while /all is running
 ALL_RUNNING = {}
-
-
-def is_owner(user_id: int) -> bool:
-    return user_id == config.OWNER_ID
 
 
 async def is_admin(message: Message) -> bool:
@@ -21,7 +16,8 @@ async def is_admin(message: Message) -> bool:
     if not user:
         return False
 
-    if is_owner(user.id):
+    # Owner can always use the command
+    if user.id == config.OWNER_ID:
         return True
 
     try:
@@ -31,8 +27,8 @@ async def is_admin(message: Message) -> bool:
         )
 
         return member.status in (
-            "administrator",
-            "owner",
+            enums.ChatMemberStatus.ADMINISTRATOR,
+            enums.ChatMemberStatus.OWNER,
         )
 
     except Exception:
@@ -49,10 +45,14 @@ async def all_handler(_, message: Message) -> None:
 
     parts = message.text.split(maxsplit=1) if message.text else []
 
-    if len(parts) < 2 or not parts[1].strip():
+    if len(parts) < 2:
         return
 
     text = parts[1].strip()
+
+    if not text:
+        return
+
     chat_id = message.chat.id
 
     ALL_RUNNING[chat_id] = True
@@ -60,7 +60,7 @@ async def all_handler(_, message: Message) -> None:
     users = []
 
     try:
-        async for member in assistant.get_chat_members(chat_id):
+        async for member in bot.get_chat_members(chat_id):
 
             if not ALL_RUNNING.get(chat_id):
                 break
@@ -70,11 +70,10 @@ async def all_handler(_, message: Message) -> None:
             if not user:
                 continue
 
-            # Skip deleted accounts and bots
             if user.is_deleted or user.is_bot:
                 continue
 
-            # Skip the person who used /all
+            # Don't tag the admin who started /all
             if message.from_user and user.id == message.from_user.id:
                 continue
 
@@ -84,7 +83,7 @@ async def all_handler(_, message: Message) -> None:
         ALL_RUNNING.pop(chat_id, None)
         return
 
-    # 5 users per message
+    # 5 users in every message
     for i in range(0, len(users), 5):
 
         if not ALL_RUNNING.get(chat_id):
@@ -95,6 +94,7 @@ async def all_handler(_, message: Message) -> None:
         mentions = []
 
         for user in batch:
+
             name = user.first_name or "User"
 
             mentions.append(
