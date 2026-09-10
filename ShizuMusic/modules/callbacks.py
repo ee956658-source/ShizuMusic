@@ -120,15 +120,15 @@ _HELP_TEXTS = {
     },
 
     "help_autoplay": {
-        "title": "🔁 ᴀᴜᴛᴏᴘʟᴀʏ ᴄᴏᴍᴍᴀɴᴅs",
-        "desc": "ᴋᴇᴇᴘ ᴛʜᴇ ǫᴜᴇᴜᴇ ɢᴏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʙᴀsᴇᴅ ᴏɴ ᴀ ǫᴜᴇʀʏ.",
-        "rows": [
-            ("/autoplay &lt;query&gt;", "ᴄᴏɴᴛɪɴᴜᴏᴜsʟʏ ᴘʟᴀʏ sᴏɴɢs ʙᴀsᴇᴅ ᴏɴ ʏᴏᴜʀ ǫᴜᴇʀʏ"),
-            ("/end, /stop", "sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ &amp; ᴄʟᴇᴀʀ ǫᴜᴇᴜᴇ"),
-            ("<code>/autoplay sidhu moose wala</code>", "ᴇxᴀᴍᴘʟᴇ"),
-            ("<code>/autoplay arijit singh</code>", "ᴇxᴀᴍᴘʟᴇ"),
-        ],
-    },
+    "title": "🔁 ᴀᴜᴛᴏᴘʟᴀʏ ᴄᴏᴍᴍᴀɴᴅs",
+    "desc": "ᴋᴇᴇᴘ ʏᴏᴜʀ ᴍᴜsɪᴄ ᴘʟᴀʏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʙᴀsᴇᴅ ᴏɴ ʏᴏᴜʀ ᴄʜᴏsᴇɴ ǫᴜᴇʀʏ. ᴡʜᴇɴ ᴛʜᴇ ǫᴜᴇᴜᴇ ʀᴜɴs ᴏᴜᴛ, ᴀᴜᴛᴏᴘʟᴀʏ ᴡɪʟʟ ғɪɴᴅ ᴀɴᴅ ᴘʟᴀʏ ᴀ ɴᴇᴡ ᴛʀᴀᴄᴋ ᴛᴏ ᴋᴇᴇᴘ ᴛʜᴇ ᴍᴜsɪᴄ ɢᴏɪɴɢ.",
+    "rows": [
+        ("/autoplay &lt;query&gt;", "ᴇɴᴀʙʟᴇ ᴀᴜᴛᴏᴘʟᴀʏ ᴜsɪɴɢ ʏᴏᴜʀ ᴄʜᴏsᴇɴ ǫᴜᴇʀʏ"),
+        ("/end, /stop", "sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ ᴀɴᴅ ᴄʟᴇᴀʀ ᴛʜᴇ ǫᴜᴇᴜᴇ"),
+        ("<code>/autoplay sidhu moose wala</code>", "ᴇxᴀᴍᴘʟᴇ"),
+        ("<code>/autoplay arijit singh</code>", "ᴇxᴀᴍᴘʟᴇ"),
+    ],
+},
 
     "help_gcast": {
         "title": "📢 ɢ-ᴄᴀsᴛ ᴄᴏᴍᴍᴀɴᴅs",
