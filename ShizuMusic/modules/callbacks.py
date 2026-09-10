@@ -338,15 +338,13 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         except Exception:
             pass
 
-    # ── HELP ────────────────────────────────────────────────────────────[...]
-        elif data == "show_help":
+       # ── HELP ────────────────────────────────────────────────────────────[...]
+    elif data == "show_help":
         await cbq.answer()
-        uid = cbq.from_user.id
-        name = sanitize_display_name(cbq.from_user.first_name)
         photo = random.choice(config.START_PHOTOS)
 
         content = (
-            rich_heading('📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ', level=3)
+            rich_heading("📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ", level=3)
             + rich_img(photo)
             + rich_note(
                 "ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ ᴇxᴘʟᴏʀᴇ ᴛʜᴇ ᴀᴠᴀɪʟᴀʙʟᴇ "
@@ -365,6 +363,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
                 await cbq.message.delete()
             except Exception:
                 pass
+
             await rich_send(
                 bot,
                 chat_id,
@@ -376,8 +375,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
                 cbq.message,
                 content,
                 reply_markup=_HELP_KB
-            )
-        await _go_back(cbq)
+            ) 
 
     elif data.startswith("help_"):
         await cbq.answer()
