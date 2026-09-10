@@ -7,12 +7,11 @@ from ShizuMusic import bot
 from ShizuMusic.modules.block import user_allowed
 
 
-# user_id: {"time": timestamp, "reason": reason}
+# user_id: {"time": timestamp, "reason": reason, "name": name}
 AFK_USERS = {}
 
 
 def fancy_name(name: str) -> str:
-    """Convert normal English letters to mathematical bold letters."""
     result = []
 
     for char in name:
@@ -50,7 +49,7 @@ def format_afk_time(seconds: int) -> str:
     return ":".join(parts)
 
 
-# ── /afk ──────────────────────────────────────────────────────────────────────
+# ── /afk command ──────────────────────────────────────────────────────────────
 
 @bot.on_message(filters.command("afk") & user_allowed)
 async def afk_handler(_, message: Message) -> None:
@@ -69,33 +68,44 @@ async def afk_handler(_, message: Message) -> None:
         "name": user.first_name or "User",
     }
 
-    name = mention_user(user.id, user.first_name or "User")
+    name = mention_user(
+        user.id,
+        user.first_name or "User"
+    )
 
     await message.reply_text(
         f"{name} is now afk"
     )
 
 
-# ── AFK detection + return ────────────────────────────────────────────────────
+# ── AFK detection + return ───────────────────────────────────────────────────
 
-@bot.on_message(filters.group & user_allowed, group=10)
+@bot.on_message(
+    filters.group
+    & ~filters.command("afk")
+    & user_allowed,
+    group=10
+)
 async def afk_handler_messages(_, message: Message) -> None:
-
-    # Do not treat the /afk command itself as the user's return message.
-    if message.text and message.text.startswith("/afk"):
-        return
 
     user = message.from_user
 
     if not user:
         return
 
-    # User came back online
+    # ── User came back online ────────────────────────────────────────────────
     if user.id in AFK_USERS:
+
         data = AFK_USERS.pop(user.id)
 
-        elapsed = format_afk_time(time.time() - data["time"])
-        name = mention_user(user.id, user.first_name or data["name"])
+        elapsed = format_afk_time(
+            time.time() - data["time"]
+        )
+
+        name = mention_user(
+            user.id,
+            user.first_name or data["name"]
+        )
 
         text = f"{name} is back online since {elapsed}"
 
@@ -106,15 +116,26 @@ async def afk_handler_messages(_, message: Message) -> None:
 
         return
 
-    # Check replied-to user
-    if message.reply_to_message and message.reply_to_message.from_user:
+    # ── Check replied-to user ────────────────────────────────────────────────
+    if (
+        message.reply_to_message
+        and message.reply_to_message.from_user
+    ):
+
         target = message.reply_to_message.from_user
 
         if target.id in AFK_USERS:
+
             data = AFK_USERS[target.id]
 
-            elapsed = format_afk_time(time.time() - data["time"])
-            name = mention_user(target.id, target.first_name or data["name"])
+            elapsed = format_afk_time(
+                time.time() - data["time"]
+            )
+
+            name = mention_user(
+                target.id,
+                target.first_name or data["name"]
+            )
 
             await message.reply_text(
                 f"{name} is afk since {elapsed}"
@@ -122,18 +143,26 @@ async def afk_handler_messages(_, message: Message) -> None:
 
             return
 
-    # Check mentioned users
+    # ── Check mentioned users ────────────────────────────────────────────────
     try:
         mentioned_users = await message.get_users()
     except Exception:
         mentioned_users = []
 
     for target in mentioned_users:
+
         if target.id in AFK_USERS:
+
             data = AFK_USERS[target.id]
 
-            elapsed = format_afk_time(time.time() - data["time"])
-            name = mention_user(target.id, target.first_name or data["name"])
+            elapsed = format_afk_time(
+                time.time() - data["time"]
+            )
+
+            name = mention_user(
+                target.id,
+                target.first_name or data["name"]
+            )
 
             await message.reply_text(
                 f"{name} is afk since {elapsed}"
