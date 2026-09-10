@@ -60,7 +60,8 @@ async def afk_handler(_, message: Message) -> None:
     if not user:
         return
 
-    reason = message.text.split(maxsplit=1)[1].strip() if len(message.text.split(maxsplit=1)) > 1 else ""
+    parts = message.text.split(maxsplit=1) if message.text else []
+    reason = parts[1].strip() if len(parts) > 1 else ""
 
     AFK_USERS[user.id] = {
         "time": time.time(),
@@ -79,6 +80,10 @@ async def afk_handler(_, message: Message) -> None:
 
 @bot.on_message(filters.group & user_allowed, group=10)
 async def afk_handler_messages(_, message: Message) -> None:
+
+    # Do not treat the /afk command itself as the user's return message.
+    if message.text and message.text.startswith("/afk"):
+        return
 
     user = message.from_user
 
