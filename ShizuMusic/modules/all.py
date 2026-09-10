@@ -16,7 +16,7 @@ async def is_admin(message: Message) -> bool:
     if not user:
         return False
 
-    # Owner can always use the command
+    # Owner can always use /all and /alloff
     if user.id == config.OWNER_ID:
         return True
 
@@ -38,13 +38,19 @@ async def is_admin(message: Message) -> bool:
 
 # ── /all ──────────────────────────────────────────────────────────────────────
 
-@bot.on_message(filters.command("all") & filters.group)
+@bot.on_message(
+    filters.group & filters.command("all"),
+    group=1
+)
 async def all_handler(_, message: Message) -> None:
 
     if not await is_admin(message):
         return
 
-    parts = message.text.split(maxsplit=1) if message.text else []
+    if not message.text:
+        return
+
+    parts = message.text.split(maxsplit=1)
 
     if len(parts) < 2:
         return
@@ -71,12 +77,10 @@ async def all_handler(_, message: Message) -> None:
             if not user:
                 continue
 
-            # Skip bots and deleted accounts
-            if user.is_bot or user.is_deleted:
+            if user.is_deleted:
                 continue
 
-            # Skip the admin who started /all
-            if message.from_user and user.id == message.from_user.id:
+            if user.is_bot:
                 continue
 
             users.append(user)
@@ -92,14 +96,9 @@ async def all_handler(_, message: Message) -> None:
 
     if not users:
         ALL_RUNNING.pop(chat_id, None)
-
-        await message.reply_text(
-            "No members found."
-        )
-
         return
 
-    # 5 members in every message
+    # 5 members per message
     for i in range(0, len(users), 5):
 
         if not ALL_RUNNING.get(chat_id):
@@ -131,9 +130,7 @@ async def all_handler(_, message: Message) -> None:
             )
 
         except Exception as e:
-
             print(f"ALL SEND ERROR: {e}")
-
             break
 
         await asyncio.sleep(1)
@@ -143,14 +140,13 @@ async def all_handler(_, message: Message) -> None:
 
 # ── /alloff ───────────────────────────────────────────────────────────────────
 
-@bot.on_message(filters.command("alloff") & filters.group)
+@bot.on_message(
+    filters.group & filters.command("alloff"),
+    group=1
+)
 async def alloff_handler(_, message: Message) -> None:
 
     if not await is_admin(message):
         return
 
     ALL_RUNNING[message.chat.id] = False
-
-    await message.reply_text(
-        "All tagging stopped."
-    )
