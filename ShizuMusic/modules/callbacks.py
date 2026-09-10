@@ -47,17 +47,21 @@ def _support_updates_pills() -> str:
 
 
 def _category_html(title: str, desc: str, rows, photo: str = None) -> str:
-    """title/desc/rows + photo -> photo + heading + description + Command/Description table + pills."""
     html = ""
+
     if photo:
         html += rich_img(photo)
-    return (
-        html
-        + rich_heading(title, level=3)
-        + f"<p>{desc}</p>"
-        + rich_table(["ᴄᴏᴍᴍᴀɴᴅ", "ᴅᴇsᴄʀɪᴘᴛɪᴏɴ"], rows)
-        + _support_updates_pills()
-    )
+
+    html += rich_heading(title, level=3)
+    html += f"<p>{desc}</p>"
+
+    for command, description in rows:
+        if command.startswith("<code>"):
+            html += f"<p>{description}<br>{command}</p>"
+        else:
+            html += f"<p><code>{command}</code><br>→ {description}</p>"
+
+    return html
 
 
 # ── Help menu layout ──────────────────────────────────────────────────────────[...]
