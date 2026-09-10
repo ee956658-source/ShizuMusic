@@ -31,7 +31,8 @@ async def is_admin(message: Message) -> bool:
             enums.ChatMemberStatus.OWNER,
         )
 
-    except Exception:
+    except Exception as e:
+        print(f"ALL ADMIN CHECK ERROR: {e}")
         return False
 
 
@@ -70,20 +71,35 @@ async def all_handler(_, message: Message) -> None:
             if not user:
                 continue
 
-            if user.is_deleted or user.is_bot:
+            # Skip bots and deleted accounts
+            if user.is_bot or user.is_deleted:
                 continue
 
-            # Don't tag the admin who started /all
+            # Skip the admin who started /all
             if message.from_user and user.id == message.from_user.id:
                 continue
 
             users.append(user)
 
-    except Exception:
+    except Exception as e:
         ALL_RUNNING.pop(chat_id, None)
+
+        await message.reply_text(
+            f"ALL ERROR: {e}"
+        )
+
         return
 
-    # 5 users in every message
+    if not users:
+        ALL_RUNNING.pop(chat_id, None)
+
+        await message.reply_text(
+            "No members found."
+        )
+
+        return
+
+    # 5 members in every message
     for i in range(0, len(users), 5):
 
         if not ALL_RUNNING.get(chat_id):
@@ -113,7 +129,11 @@ async def all_handler(_, message: Message) -> None:
                 reply,
                 disable_web_page_preview=True
             )
-        except Exception:
+
+        except Exception as e:
+
+            print(f"ALL SEND ERROR: {e}")
+
             break
 
         await asyncio.sleep(1)
@@ -130,3 +150,7 @@ async def alloff_handler(_, message: Message) -> None:
         return
 
     ALL_RUNNING[message.chat.id] = False
+
+    await message.reply_text(
+        "All tagging stopped."
+    )
