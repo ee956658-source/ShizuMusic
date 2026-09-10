@@ -90,7 +90,7 @@ async def all_handler(_, message: Message):
 
             await message.reply_text(
                 f"{text}\n\n"
-                + "\n".join(mentions)
+                + "\n\n".join(mentions)
                 + "\n\n"
                 + "<tg-spoiler>Use /alloff to stop</tg-spoiler>"
             )
