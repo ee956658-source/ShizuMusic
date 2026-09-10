@@ -24,7 +24,6 @@ from ShizuMusic.utils.rich_ui import (
     rich_esc,
     rich_heading,
     rich_img,
-    rich_kv_table,
     rich_send,
 )
 
@@ -42,10 +41,16 @@ async def ping_cmd(client, message: Message) -> None:
 
     chat_id = message.chat.id
     start   = time.perf_counter()
-    pm      = await rich_send(
-        bot, chat_id,
-        rich_heading(f"❍ {rich_esc(client.me.first_name)} ɪs ᴘɪɴɢɪɴɢ...", level=3),
+
+    pm = await rich_send(
+        bot,
+        chat_id,
+        rich_heading(
+            f"❍ {rich_esc(client.me.first_name)} ɪs ᴘɪɴɢɪɴɢ...",
+            level=3
+        ),
     )
+
     latency = round((time.perf_counter() - start) * 1000)
     uptime  = str(timedelta(seconds=int(time.time() - bot_start_time)))
     cpu     = psutil.cpu_percent(interval=1)
@@ -53,7 +58,7 @@ async def ping_cmd(client, message: Message) -> None:
     process = psutil.Process(os.getpid())
     ram     = process.memory_info().rss / 1024 / 1024
 
-    disk    = psutil.disk_usage("/")
+    disk = psutil.disk_usage("/")
     disk_str = (
         f"{disk.used // (1024**3)}GB / "
         f"{disk.total // (1024**3)}GB "
@@ -74,18 +79,21 @@ async def ping_cmd(client, message: Message) -> None:
 
     caption = (
         rich_heading(f"🏓 ᴘᴏɴɢ : {latency}ms", level=3)
-        + rich_img(config.PING_IMG_URL)
-        + rich_kv_table([
-            ("ᴜᴘᴛɪᴍᴇ", f"<code>{uptime}</code>"),
-            ("ʀᴀᴍ", f"<code>{ram:.2f} MB</code>"),
-            ("ᴄᴘᴜ", f"<code>{cpu}%</code>"),
-            ("ᴅɪsᴋ", f"<code>{disk_str}</code>"),
-            ("ᴘʏᴛɢᴄ", f"<code>{pytg}ms</code>"),
-        ])
-        + f"<p>❍ ʙʏ » <a href=\"{config.SUPPORT_GROUP}\">sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a></p>"
+        + rich_img("https://files.catbox.moe/3cpwd7.jpg")
+        + f"<p>ᴜᴘᴛɪᴍᴇ : <code>{uptime}</code></p>"
+        + f"<p>ʀᴀᴍ : <code>{ram:.2f} MB</code></p>"
+        + f"<p>ᴄᴘᴜ : <code>{cpu}%</code></p>"
+        + f"<p>ᴅɪsᴋ : <code>{disk_str}</code></p>"
+        + f"<p>ᴘʏᴛɢᴄ : <code>{pytg}ms</code></p>"
+        + "<p>❍ ʙʏ » @iucrazy</p>"
     )
 
-    await rich_send(bot, chat_id, caption, reply_markup=supp_markup())
+    await rich_send(
+        bot,
+        chat_id,
+        caption,
+        reply_markup=supp_markup()
+    )
 
 
 # ── /speedtest ─────────────────────────────────────────────────────────────────
@@ -109,18 +117,33 @@ def _run_speedtest(m):
 async def speedtest_cmd(client, message: Message) -> None:
 
     chat_id = message.chat.id
-    m = await rich_send(bot, chat_id, rich_heading("❍ sᴛᴀʀᴛɪɴɢ sᴘᴇᴇᴅ ᴛᴇsᴛ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...", level=3))
+
+    m = await rich_send(
+        bot,
+        chat_id,
+        rich_heading(
+            "❍ sᴛᴀʀᴛɪɴɢ sᴘᴇᴇᴅ ᴛᴇsᴛ, ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...",
+            level=3
+        )
+    )
 
     loop   = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, _run_speedtest, m)
 
     if result is None:
         from ShizuMusic.utils.rich_ui import rich_edit
-        await rich_edit(m, rich_heading("❍ sᴘᴇᴇᴅᴛᴇsᴛ ғᴀɪʟᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ", level=3))
+
+        await rich_edit(
+            m,
+            rich_heading(
+                "❍ sᴘᴇᴇᴅᴛᴇsᴛ ғᴀɪʟᴇᴅ, ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ",
+                level=3
+            )
+        )
         return
 
     download = result["download"] / 1_000_000
-    upload   = result["upload"]   / 1_000_000
+    upload   = result["upload"] / 1_000_000
     ping     = result["ping"]
     isp      = result["client"]["isp"]
     country  = result["client"]["country"]
@@ -155,5 +178,10 @@ async def speedtest_cmd(client, message: Message) -> None:
         await m.delete()
     except Exception:
         pass
-    await rich_send(bot, chat_id, caption, reply_markup=supp_markup())
 
+    await rich_send(
+        bot,
+        chat_id,
+        caption,
+        reply_markup=supp_markup()
+    )
