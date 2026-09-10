@@ -1,12 +1,31 @@
 import asyncio
 
-from pyrogram import filters
+from pyrogram import filters, enums
 from pyrogram.types import Message
 
 from ShizuMusic import bot
+import config
 
 
 ALL_RUNNING = {}
+
+
+async def is_admin(message: Message) -> bool:
+    if not message.from_user:
+        return False
+
+    if message.from_user.id == config.OWNER_ID:
+        return True
+
+    member = await bot.get_chat_member(
+        message.chat.id,
+        message.from_user.id
+    )
+
+    return member.status in (
+        enums.ChatMemberStatus.ADMINISTRATOR,
+        enums.ChatMemberStatus.OWNER,
+    )
 
 
 @bot.on_message(
@@ -15,78 +34,74 @@ ALL_RUNNING = {}
 )
 async def all_handler(_, message: Message):
 
-    if not message.from_user:
-        return
-
-    chat_id = message.chat.id
-
-    # Only group admins and owner
-    member = await bot.get_chat_member(
-        chat_id,
-        message.from_user.id
-    )
-
-    if member.status not in ("administrator", "owner"):
-        return
-
-    if not message.text:
-        return
-
-    parts = message.text.split(maxsplit=1)
-
-    if len(parts) < 2:
-        return
-
-    text = parts[1].strip()
-
-    if not text:
-        return
-
-    ALL_RUNNING[chat_id] = True
-
-    users = []
-
-    async for member in bot.get_chat_members(chat_id):
-
-        if not ALL_RUNNING.get(chat_id):
+    try:
+        if not await is_admin(message):
             return
 
-        user = member.user
+        if not message.text:
+            return
 
-        if not user:
-            continue
+        parts = message.text.split(maxsplit=1)
 
-        if user.is_bot or user.is_deleted:
-            continue
+        if len(parts) < 2:
+            return
 
-        users.append(user)
+        text = parts[1].strip()
 
-    for i in range(0, len(users), 5):
+        if not text:
+            return
 
-        if not ALL_RUNNING.get(chat_id):
-            break
+        chat_id = message.chat.id
+        ALL_RUNNING[chat_id] = True
 
-        batch = users[i:i + 5]
+        users = []
 
-        mentions = []
+        async for member in bot.get_chat_members(chat_id):
 
-        for user in batch:
-            name = user.first_name or "User"
+            if not ALL_RUNNING.get(chat_id):
+                return
 
-            mentions.append(
-                f'<a href="tg://user?id={user.id}">{name}</a>'
+            user = member.user
+
+            if not user or user.is_deleted or user.is_bot:
+                continue
+
+            users.append(user)
+
+        if not users:
+            await message.reply_text("No members found.")
+            return
+
+        for i in range(0, len(users), 5):
+
+            if not ALL_RUNNING.get(chat_id):
+                break
+
+            batch = users[i:i + 5]
+
+            mentions = []
+
+            for user in batch:
+                name = user.first_name or "User"
+
+                mentions.append(
+                    f'<a href="tg://user?id={user.id}">{name}</a>'
+                )
+
+            await message.reply_text(
+                f"{text}\n\n"
+                + "\n".join(mentions)
+                + "\n\n"
+                + "<tg-spoiler>Use /alloff to stop</tg-spoiler>"
             )
 
-        await message.reply_text(
-            f"{text}\n\n"
-            + "\n".join(mentions)
-            + "\n\n"
-            + "<tg-spoiler>Use /alloff to stop</tg-spoiler>"
-        )
+            await asyncio.sleep(1)
 
-        await asyncio.sleep(1)
+    except Exception as e:
+        await message.reply_text(f"ALL ERROR: {e}")
 
-    ALL_RUNNING.pop(chat_id, None)
+    finally:
+        ALL_RUNNING.pop(message.chat.id, None)
 
 
 @bot.on_message(
@@ -95,15 +110,8 @@ async def all_handler(_, message: Message):
 )
 async def alloff_handler(_, message: Message):
 
-    if not message.from_user:
+    try:
+        if await is_admin(message):
+            ALL_RUNNING[message.chat.id] = False
+    except Exception:
         return
-
-    member = await bot.get_chat_member(
-        message.chat.id,
-        message.from_user.id
-    )
-
-    if member.status not in ("administrator", "owner"):
-        return
-
-    ALL_RUNNING[message.chat.id] = False
