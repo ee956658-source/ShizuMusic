@@ -344,21 +344,20 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         uid  = cbq.from_user.id
         name = sanitize_display_name(cbq.from_user.first_name)
         photo = random.choice(config.START_PHOTOS)
-        content = (
-        rich_heading('📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ', level=3)
-        + rich_img(photo)
-        + rich_note(f'<p>❍ ʜᴇʏ <a href="tg://user?id={uid}">{rich_esc(name)}</a>, ᴘɪᴄᴋ ᴀ '
-        "ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ sᴇᴇ ɪᴛs ᴄᴏᴍᴍᴀɴᴅs.</p>")
-        + rich_details(
-                "✦ ʜᴇʟᴘ ғᴇᴀᴛᴜʀᴇs ✦",
-                rich_table(
-                    ["ғᴇᴀᴛᴜʀᴇ", "ᴅᴇᴛᴀɪʟs"],
-                    [
-                        ("✉️ ʜᴇʟᴘ ᴍᴇɴᴜ", "ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /"),
-                    ],
-                ),
-                open=True,
+                content = (
+            rich_heading('📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ', level=3)
+            + rich_img(photo)
+            + rich_note(
+                "ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ ᴇxᴘʟᴏʀᴇ ᴛʜᴇ ᴀᴠᴀɪʟᴀʙʟᴇ "
+                "ᴄᴏᴍᴍᴀɴᴅs ᴀɴᴅ ʟᴇᴀʀɴ ʜᴏᴡ ᴇᴀᴄʜ ғᴇᴀᴛᴜʀᴇ ᴡᴏʀᴋs."
+                "<br><br>"
+                "ᴇᴀᴄʜ ᴄᴀᴛᴇɢᴏʀʏ ᴄᴏɴᴛᴀɪɴs ɪᴛs ᴏᴡɴ sᴇᴛ ᴏғ ᴄᴏᴍᴍᴀɴᴅs "
+                "ᴀɴᴅ ᴜsᴀɢᴇ ᴅᴇᴛᴀɪʟs."
+                "<br><br>"
+                "ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /"
             )
+            + _support_updates_pills()
+)
         + rich_note(f"ᴘᴏᴡᴇʀᴇᴅ ʙʏ » <a href='https://t.me/PBXCHATS'>sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a>")
         + _support_updates_pills()
         )
