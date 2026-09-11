@@ -321,10 +321,10 @@ async def _process_play(message: Message, query: str, video: bool = False) -> No
             bot, chat_id,
             rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
 + rich_note(
-    f"<p>ᴛɪᴛʟᴇ<br>{rich_esc(short(title))}</p>"
-    f"<p>ᴅᴜʀ<br>{iso_to_human(dur_iso)}</p>"
-    f"<p>ʙʏ<br>{rich_esc(req)}</p>"
-    f"<p>ᴘᴏs<br>#{pos - 1}</p>"
+    f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
+    f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
+    f"ʙʏ — {rich_esc(req)}<br>"
+    f"ᴘᴏs — #{pos - 1}</p>"
 ),
             reply_markup=kb,
         )
