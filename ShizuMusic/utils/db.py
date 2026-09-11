@@ -633,3 +633,88 @@ def delete_filter(chat_id: int, name: str) -> None:
         )
     except Exception as e:
         logger.error(f"[DB] delete_filter: {e}")
+
+# ── Moderation Warnings ───────────────────────────────────────────────────────
+
+def get_warns(chat_id: int, user_id: int) -> int:
+    col = _col("warnings")
+    if col is None:
+        return 0
+    try:
+        doc = col.find_one({
+            "chat_id": chat_id,
+            "user_id": user_id,
+        })
+        return doc.get("count", 0) if doc else 0
+    except Exception as e:
+        logger.error(f"[DB] get_warns: {e}")
+        return 0
+
+
+def add_warn(chat_id: int, user_id: int) -> int:
+    col = _col("warnings")
+    if col is None:
+        return 0
+    try:
+        result = col.find_one_and_update(
+            {
+                "chat_id": chat_id,
+                "user_id": user_id,
+            },
+            {
+                "$inc": {"count": 1},
+                "$set": {
+                    "chat_id": chat_id,
+                    "user_id": user_id,
+                },
+            },
+            upsert=True,
+            return_document=True,
+        )
+        return result.get("count", 1) if result else 1
+    except Exception as e:
+        logger.error(f"[DB] add_warn: {e}")
+        return 0
+
+
+def remove_warn(chat_id: int, user_id: int) -> int:
+    col = _col("warnings")
+    if col is None:
+        return 0
+    try:
+        doc = col.find_one({
+            "chat_id": chat_id,
+            "user_id": user_id,
+        })
+
+        if not doc:
+            return 0
+
+        new_count = max(0, doc.get("count", 0) - 1)
+
+        if new_count == 0:
+            col.delete_one({"_id": doc["_id"]})
+        else:
+            col.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"count": new_count}},
+            )
+
+        return new_count
+
+    except Exception as e:
+        logger.error(f"[DB] remove_warn: {e}")
+        return 0
+
+
+def reset_warns(chat_id: int, user_id: int) -> None:
+    col = _col("warnings")
+    if col is None:
+        return
+    try:
+        col.delete_one({
+            "chat_id": chat_id,
+            "user_id": user_id,
+        })
+    except Exception as e:
+        logger.error(f"[DB] reset_warns: {e}")
