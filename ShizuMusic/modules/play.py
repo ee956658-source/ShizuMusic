@@ -170,17 +170,18 @@ async def play_handler(_, message: Message) -> None:
 
     _last_cmd[chat_id] = now
 
-    i        if not query:
-        await rich_send(
-            bot,
-            chat_id,
-            "<p>🎶 <b>ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ᴍᴜꜱɪᴄ</b></p>"
-            "<p>• /play song name — ᴘʟᴀʏ ᴀᴜᴅɪᴏ<br>"
-            "• /vplay song name — ᴘʟᴀʏ ᴠɪᴅᴇᴏ<br>"
-            "• ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ʏᴏᴜᴛᴜʙᴇ ʟɪɴᴋ, ᴀᴜᴅɪᴏ, ᴏʀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ /play</p>"
-            "<p>ᴇxᴀᴍᴘʟᴇ:<br>"
-            "/play pal pal afusic</p>",
-        )
+          if not query:
+                await rich_send(
+            bot, chat_id,
+            rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
+            + rich_note(
+                f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
+                f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
+                f"ʙʏ — {rich_esc(req)}<br>"
+                f"ᴘᴏs — #{pos - 1}</p>"
+            ),
+            reply_markup=kb,
+    )
         return
 
     await _process_play(
