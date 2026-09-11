@@ -26,4 +26,5 @@ ALL_MODULES = [
     "callbacks",
     "start",
     "seek",
+    "filter",
 ]
