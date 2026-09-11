@@ -27,4 +27,5 @@ ALL_MODULES = [
     "start",
     "seek",
     "filter",
+    "pin",
 ]
