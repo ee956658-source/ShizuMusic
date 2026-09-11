@@ -263,7 +263,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         except Exception:
             await cbq.answer("ғᴀɪʟᴇᴅ ᴛᴏ ʀᴇsᴜᴍᴇ", show_alert=True)
 
-    # ── SKIP ────────────────────────────────────────────────────────────[...]
+        # ── SKIP ────────────────────────────────────────────────────────────[...]
     elif data == "skip":
         if not queue_size(chat_id):
             await cbq.answer("ǫᴜᴇᴜᴇ ɪs ᴇᴍᴘᴛʏ", show_alert=True)
@@ -284,27 +284,24 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
             pass
 
         await rich_send(
-            bot, chat_id,
-            rich_heading("⏭ ᴛʀᴀᴄᴋ sᴋɪᴘᴘᴇᴅ", level=3)
-            + rich_kv_table([
-                ("ʙʏ", user.mention),
-                ("sᴏɴɢ", f"<code>{rich_esc(short(skipped['title']))}</code>"),
-            ]),
+            bot,
+            chat_id,
+            f"<p>⏭️ <b>Stream skipped by</b> —͟͞͞𒌋𓆩⃟⌯╎"
+            f"{user.mention}"
+            f" 耀 𓆰╎𓆪</p>",
         )
 
         nxt = peek_current(chat_id)
         if nxt:
             await cbq.answer("ᴘʟᴀʏɪɴɢ ɴᴇxᴛ")
             dm = await rich_send(
-                bot, chat_id,
-                rich_heading("⏭ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3)
-                + rich_kv_table([
-                    ("sᴏɴɢ", f"<code>{rich_esc(short(nxt['title']))}</code>"),
-                ]),
+                bot,
+                chat_id,
+                rich_heading("⏭ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3),
             )
             await play_song(chat_id, dm, nxt)
         else:
-            await cbq.answer("ǫᴜᴇᴜᴇ ᴇᴍᴘᴛʏ", show_alert=True)
+            await cbq.answer("sᴋɪᴘᴘᴇᴅ")
 
     # ── STOP ────────────────────────────────────────────────────────────[...]
     elif data == "stop":
