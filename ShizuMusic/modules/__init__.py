@@ -28,4 +28,5 @@ ALL_MODULES = [
     "seek",
     "filter",
     "pin",
+    "vc",
 ]
