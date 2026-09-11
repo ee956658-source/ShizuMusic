@@ -320,12 +320,12 @@ async def _process_play(message: Message, query: str, video: bool = False) -> No
         await rich_send(
             bot, chat_id,
             rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
-            + rich_kv_table([
-                ("ᴛɪᴛʟᴇ", f"<code>{rich_esc(short(title))}</code>"),
-                ("ᴅᴜʀ", f"<code>{iso_to_human(dur_iso)}</code>"),
-                ("ʙʏ", f"<code>{rich_esc(req)}</code>"),
-                ("ᴘᴏs", f"<code>#{pos - 1}</code>"),
-            ]),
++ rich_note(
+    f"<p>ᴛɪᴛʟᴇ<br><code>{rich_esc(short(title))}</code></p>"
+    f"<p>ᴅᴜʀ<br><code>{iso_to_human(dur_iso)}</code></p>"
+    f"<p>ʙʏ<br><code>{rich_esc(req)}</code></p>"
+    f"<p>ᴘᴏs<br><code>#{pos - 1}</code></p>"
+),
             reply_markup=kb,
         )
         await pm.delete()
