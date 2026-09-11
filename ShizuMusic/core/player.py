@@ -216,8 +216,11 @@ async def play_song(
         return
 
     loading_text = (
-        rich_heading("❍ ʟᴏᴀᴅɪɴɢ...", level=3)
-        + rich_kv_table([("sᴏɴɢ", rich_esc(short(song['title'])))])
+    rich_heading("❍ ʟᴏᴀᴅɪɴɢ...", level=3)
+    + rich_note(
+        f"<p>ᴛʀᴀᴄᴋ — {rich_esc(short(song['title']))}<br>"
+        "ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...</p>"
+    )
     )
 
     try:
