@@ -317,12 +317,12 @@ async def _process_play(message: Message, query: str, video: bool = False) -> No
 
     if pos == 1:
         await play_song(chat_id, pm, song)
-    else:
+        else:
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("⌯ sᴋɪᴘ ⌯",  callback_data="skip"),
             InlineKeyboardButton("⌯ ᴄʟᴇᴀʀ ⌯", callback_data="clear"),
         ]])
-                await rich_send(
+        await rich_send(
             bot, chat_id,
             rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
             + rich_note(
