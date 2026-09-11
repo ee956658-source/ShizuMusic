@@ -168,20 +168,19 @@ async def play_handler(_, message: Message) -> None:
             asyncio.create_task(_run_pending(chat_id, rem))
         return
 
-    _last_cmd[chat_id] = now
+        _last_cmd[chat_id] = now
 
-          if not query:
-                await rich_send(
-            bot, chat_id,
-            rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
-            + rich_note(
-                f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
-                f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
-                f"ʙʏ — {rich_esc(req)}<br>"
-                f"ᴘᴏs — #{pos - 1}</p>"
-            ),
-            reply_markup=kb,
-    )
+    if not query:
+        await rich_send(
+            bot,
+            chat_id,
+            "<p>🎶 <b>ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ᴍᴜꜱɪᴄ</b></p>"
+            "<p>• /play song name — ᴘʟᴀʏ ᴀᴜᴅɪᴏ<br>"
+            "• /vplay song name — ᴘʟᴀʏ ᴠɪᴅᴇᴏ<br>"
+            "• ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ʏᴏᴜᴛᴜʙᴇ ʟɪɴᴋ, ᴀᴜᴅɪᴏ, ᴏʀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ /play</p>"
+            "<p>ᴇxᴀᴍᴘʟᴇ:<br>"
+            "/play pal pal afusic</p>",
+        )
         return
 
     await _process_play(
@@ -323,15 +322,15 @@ async def _process_play(message: Message, query: str, video: bool = False) -> No
             InlineKeyboardButton("⌯ sᴋɪᴘ ⌯",  callback_data="skip"),
             InlineKeyboardButton("⌯ ᴄʟᴇᴀʀ ⌯", callback_data="clear"),
         ]])
-        await rich_send(
+                await rich_send(
             bot, chat_id,
             rich_heading("❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ", level=3)
-+ rich_note(
-    f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
-    f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
-    f"ʙʏ — {rich_esc(req)}<br>"
-    f"ᴘᴏs — #{pos - 1}</p>"
-),
+            + rich_note(
+                f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
+                f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
+                f"ʙʏ — {rich_esc(req)}<br>"
+                f"ᴘᴏs — #{pos - 1}</p>"
+            ),
             reply_markup=kb,
         )
         await pm.delete()
