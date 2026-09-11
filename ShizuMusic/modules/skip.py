@@ -9,21 +9,16 @@
 import asyncio
 
 from pyrogram import filters
-from pyrogram.enums import ParseMode
 from pyrogram.types import Message
 
 from ShizuMusic import bot, call_py
 from ShizuMusic.core.player import play_song
 from ShizuMusic.core.queue import peek_current, pop_current, queue_size
 from ShizuMusic.modules.block import group_allowed, user_allowed
-from ShizuMusic.utils.formatters import short
 from ShizuMusic.utils.helpers import delete_file
 from ShizuMusic.utils.permissions import is_user_authorized
 from ShizuMusic.utils.rich_ui import (
-    rich_edit,
-    rich_esc,
     rich_heading,
-    rich_kv_table,
     rich_note,
     rich_send,
 )
@@ -39,26 +34,23 @@ async def skip_cmd(_, message: Message) -> None:
 
     chat_id = message.chat.id
 
+    # Owner / Admin / Authorized user
     if not await is_user_authorized(message):
         await rich_send(
-            bot, chat_id,
+            bot,
+            chat_id,
             rich_heading("⛔ ᴀᴅᴍɪɴ ᴏɴʟʏ", level=3)
             + rich_note("ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ғᴏʀ ɢʀᴏᴜᴘ ᴀᴅᴍɪɴs."),
         )
         return
 
+    # Nothing currently playing
     if not queue_size(chat_id):
-        await rich_send(
-            bot, chat_id,
-            rich_heading("❍ ǫᴜᴇᴜᴇ ɪs ᴇᴍᴘᴛʏ", level=3)
-            + rich_note("ɴᴏ sᴏɴɢs ᴛᴏ sᴋɪᴘ."),
-        )
         return
-
-    sm = await rich_send(bot, chat_id, rich_heading("⏭ sᴋɪᴘᴘɪɴɢ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ...", level=3))
 
     skipped = pop_current(chat_id)
 
+    # Stop current voice call
     try:
         await call_py.leave_call(chat_id)
     except Exception:
@@ -66,33 +58,35 @@ async def skip_cmd(_, message: Message) -> None:
 
     await asyncio.sleep(2)
 
+    # Remove downloaded audio file
     try:
         delete_file(skipped.get("file_path", ""))
     except Exception:
         pass
 
+    # Clickable Telegram name of the person who used /skip
+    user = message.from_user
+
+    if user:
+        user_name = user.mention
+    else:
+        user_name = "Unknown"
+
+    # Skip confirmation
+    await rich_send(
+        bot,
+        chat_id,
+        f"<p>⏭️ sᴛʀᴇᴀᴍ sᴋɪᴘᴘᴇᴅ ʙʏ {user_name}</p>",
+    )
+
+    # Start next queued song automatically
     nxt = peek_current(chat_id)
 
     if nxt:
-        await rich_edit(
-            sm,
-            rich_heading("⏭ ᴛʀᴀᴄᴋ sᴋɪᴘᴘᴇᴅ", level=3)
-            + rich_kv_table([
-                ("sᴋɪᴘᴘᴇᴅ", f"<code>{rich_esc(short(skipped['title']))}</code>"),
-                ("ɴᴏᴡ ᴘʟᴀʏɪɴɢ", f"<code>{rich_esc(nxt['title'])}</code>"),
-            ]),
-        )
         dm = await rich_send(
-            bot, chat_id,
-            rich_heading("❍ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3)
-            + rich_kv_table([("ᴛɪᴛʟᴇ", f"<code>{rich_esc(nxt['title'])}</code>")]),
-        )
-        await play_song(chat_id, dm, nxt)
-    else:
-        await rich_edit(
-            sm,
-            rich_heading("⏭ ᴛʀᴀᴄᴋ sᴋɪᴘᴘᴇᴅ", level=3)
-            + rich_kv_table([("sᴋɪᴘᴘᴇᴅ", f"<code>{rich_esc(short(skipped['title']))}</code>")])
-            + rich_note("ǫᴜᴇᴜᴇ ɪs ɴᴏᴡ ᴇᴍᴘᴛʏ"),
+            bot,
+            chat_id,
+            rich_heading("❍ ʟᴏᴀᴅɪɴɢ...", level=3),
         )
 
+        await play_song(chat_id, dm, nxt)
