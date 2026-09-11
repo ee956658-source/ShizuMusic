@@ -574,3 +574,62 @@ def get_nsfw_approved_users(chat_id: int) -> list:
     except Exception as e:
         logger.error(f"[DB] get_nsfw_approved_users: {e}")
         return []
+
+# ── Saved Filters ──────────────────────────────────────────────────────────────
+
+def save_filter(chat_id: int, name: str, source_chat_id: int, source_message_id: int) -> None:
+    col = _col("filters")
+    if col is None:
+        return
+
+    try:
+        col.update_one(
+            {
+                "chat_id": chat_id,
+                "name": name.lower(),
+            },
+            {
+                "$set": {
+                    "chat_id": chat_id,
+                    "name": name.lower(),
+                    "source_chat_id": source_chat_id,
+                    "source_message_id": source_message_id,
+                }
+            },
+            upsert=True,
+        )
+    except Exception as e:
+        logger.error(f"[DB] save_filter: {e}")
+
+
+def get_filter(chat_id: int, name: str) -> Optional[dict]:
+    col = _col("filters")
+    if col is None:
+        return None
+
+    try:
+        return col.find_one(
+            {
+                "chat_id": chat_id,
+                "name": name.lower(),
+            }
+        )
+    except Exception as e:
+        logger.error(f"[DB] get_filter: {e}")
+        return None
+
+
+def delete_filter(chat_id: int, name: str) -> None:
+    col = _col("filters")
+    if col is None:
+        return
+
+    try:
+        col.delete_one(
+            {
+                "chat_id": chat_id,
+                "name": name.lower(),
+            }
+        )
+    except Exception as e:
+        logger.error(f"[DB] delete_filter: {e}")
