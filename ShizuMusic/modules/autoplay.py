@@ -78,7 +78,7 @@ async def autoplay_cmd(_, message: Message) -> None:
     pm = await rich_send(
         bot, chat_id,
         rich_heading("🔁 sᴇᴛᴛɪɴɢ ᴜᴘ ᴀᴜᴛᴏᴘʟᴀʏ...", level=3)
-        + rich_kv_table([("ǫᴜᴇʀʏ", f"<code>{rich_esc(query)}</code>")]),
++ rich_note(f"ǫᴜᴇʀʏ — {rich_esc(query)}"),
     )
 
     req    = user.first_name if user else "AutoPlay"
