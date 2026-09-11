@@ -101,11 +101,11 @@ async def autoplay_cmd(_, message: Message) -> None:
     await rich_edit(
         pm,
         rich_heading("🔁 ᴀᴜᴛᴏᴘʟᴀʏ sᴛᴀʀᴛᴇᴅ", level=3)
-        + rich_kv_table([
-            ("ǫᴜᴇʀʏ", f"<code>{rich_esc(query)}</code>"),
-            ("ᴀᴅᴅᴇᴅ", f"{count} sᴏɴɢs ᴛᴏ ǫᴜᴇᴜᴇ"),
-        ])
-        + rich_note("ᴜsᴇ /end ᴛᴏ sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ"),
++ rich_note(
+    f"ǫᴜᴇʀʏ — {rich_esc(query)}<br>"
+    f"ᴀᴅᴅᴇᴅ — {count} sᴏɴɢs ᴛᴏ ǫᴜᴇᴜᴇ"
+)
++ rich_note("ᴜsᴇ /end ᴛᴏ sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ"),
     )
 
     if not was_playing and first:
