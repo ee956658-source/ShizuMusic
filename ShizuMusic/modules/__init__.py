@@ -29,4 +29,5 @@ ALL_MODULES = [
     "filter",
     "pin",
     "vc",
+    "moderation",
 ]
