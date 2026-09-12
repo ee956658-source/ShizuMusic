@@ -22,8 +22,10 @@ async def is_admin_or_owner(message: Message) -> bool:
 
         if owner_id and message.from_user.id == owner_id:
             return True
+
         if owner_ids and message.from_user.id in owner_ids:
             return True
+
     except Exception:
         pass
 
@@ -33,25 +35,34 @@ async def is_admin_or_owner(message: Message) -> bool:
             message.chat.id,
             message.from_user.id,
         )
-        return member.status in ("administrator", "creator", "owner")
+
+        return member.status in (
+            "administrator",
+            "creator",
+            "owner",
+        )
+
     except Exception:
         return False
 
 
 @bot.on_message(
-    filters.group & filters.command("filter"),
-    group=7
+    filters.group & filters.command("filter")
 )
 async def add_filter(_, message: Message) -> None:
     if not await is_admin_or_owner(message):
         return
 
     if not message.reply_to_message:
-        await message.reply_text("Reply to a message and use /filter <name>")
+        await message.reply_text(
+            "Reply to a message and use /filter <name>"
+        )
         return
 
     if len(message.command) < 2:
-        await message.reply_text("Use /filter <name>")
+        await message.reply_text(
+            "Use /filter <name>"
+        )
         return
 
     name = message.command[1].strip().lower()
@@ -67,20 +78,24 @@ async def add_filter(_, message: Message) -> None:
 
 
 @bot.on_message(
-    filters.group & filters.command("stop"),
-    group=7
+    filters.group & filters.command("stop")
 )
 async def stop_filter(_, message: Message) -> None:
     if not await is_admin_or_owner(message):
         return
 
     if len(message.command) < 2:
-        await message.reply_text("Use /stop <name>")
+        await message.reply_text(
+            "Use /stop <name>"
+        )
         return
 
     name = message.command[1].strip().lower()
 
-    delete_filter(message.chat.id, name)
+    delete_filter(
+        message.chat.id,
+        name,
+    )
 
     await message.reply_text("🗑️ Filter removed")
 
@@ -88,18 +103,22 @@ async def stop_filter(_, message: Message) -> None:
 @bot.on_message(
     filters.group
     & filters.text
-    & ~filters.command(["filter", "stop"]),
-    group=99
+    & ~filters.command(["filter", "stop"])
 )
 async def trigger_filter(_, message: Message) -> None:
     if not message.text:
         return
 
     name = message.text.strip().lower()
+
     if not name:
         return
 
-    data = get_filter(message.chat.id, name)
+    data = get_filter(
+        message.chat.id,
+        name,
+    )
+
     if not data:
         return
 
