@@ -1,11 +1,3 @@
-# --------------------------------------------------------------------------------
-#  ShizuMusic © 2026
-#  Developed by Bad Munda ❤️
-#
-#  Unauthorized copying, editing, re-uploading or removing credits
-#  from this source code is strictly prohibited.
-# --------------------------------------------------------------------------------
-
 from pyrogram import filters
 from pyrogram.types import Message
 
@@ -37,13 +29,11 @@ async def is_admin_or_owner(message: Message) -> bool:
         return False
 
 
-# ── Save Filter ────────────────────────────────────────────────────────────────
-
 @bot.on_message(
-    filters.group & filters.command("filter")
+    filters.group
+    & filters.command("filter")
 )
 async def add_filter(_, message: Message) -> None:
-
     if not await is_admin_or_owner(message):
         return
 
@@ -61,28 +51,21 @@ async def add_filter(_, message: Message) -> None:
 
     name = message.command[1].strip().lower()
 
-    if not name:
-        return
-
-    source = message.reply_to_message
-
     save_filter(
         message.chat.id,
         name,
-        source.chat.id,
-        source.id,
+        message.reply_to_message.chat.id,
+        message.reply_to_message.id,
     )
 
     await message.reply_text("Filter saved")
 
 
-# ── Stop Filter ───────────────────────────────────────────────────────────────
-
 @bot.on_message(
-    filters.group & filters.command("stop")
+    filters.group
+    & filters.command("stop")
 )
 async def stop_filter(_, message: Message) -> None:
-
     if not await is_admin_or_owner(message):
         return
 
@@ -94,9 +77,6 @@ async def stop_filter(_, message: Message) -> None:
 
     name = message.command[1].strip().lower()
 
-    if not name:
-        return
-
     delete_filter(
         message.chat.id,
         name,
@@ -105,16 +85,12 @@ async def stop_filter(_, message: Message) -> None:
     await message.reply_text("Filter removed")
 
 
-# ── Trigger Filter ────────────────────────────────────────────────────────────
-
 @bot.on_message(
     filters.group
     & filters.text
-    & ~filters.command("filter")
-    & ~filters.command("stop")
+    & ~filters.command(["filter", "stop"])
 )
 async def trigger_filter(_, message: Message) -> None:
-
     if not message.text:
         return
 
