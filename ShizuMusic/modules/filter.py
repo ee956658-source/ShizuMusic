@@ -32,9 +32,7 @@ async def is_admin_or_owner(message: Message) -> bool:
             message.chat.id,
             message.from_user.id,
         )
-
         return member.status in ("administrator", "owner")
-
     except Exception:
         return False
 
@@ -42,17 +40,23 @@ async def is_admin_or_owner(message: Message) -> bool:
 # ── Save Filter ────────────────────────────────────────────────────────────────
 
 @bot.on_message(
-    filters.group
-    & filters.command("filter")
+    filters.group & filters.command("filter")
 )
 async def add_filter(_, message: Message) -> None:
+
     if not await is_admin_or_owner(message):
         return
 
     if not message.reply_to_message:
+        await message.reply_text(
+            "Reply to a message and use /filter <name>"
+        )
         return
 
     if len(message.command) < 2:
+        await message.reply_text(
+            "Use /filter <name>"
+        )
         return
 
     name = message.command[1].strip().lower()
@@ -69,20 +73,23 @@ async def add_filter(_, message: Message) -> None:
         source.id,
     )
 
-    await message.reply_text("saved filter")
+    await message.reply_text("Filter saved")
 
 
-# ── Stop Filter ────────────────────────────────────────────────────────────────
+# ── Stop Filter ───────────────────────────────────────────────────────────────
 
 @bot.on_message(
-    filters.group
-    & filters.command("stop")
+    filters.group & filters.command("stop")
 )
 async def stop_filter(_, message: Message) -> None:
+
     if not await is_admin_or_owner(message):
         return
 
     if len(message.command) < 2:
+        await message.reply_text(
+            "Use /stop <name>"
+        )
         return
 
     name = message.command[1].strip().lower()
@@ -95,6 +102,8 @@ async def stop_filter(_, message: Message) -> None:
         name,
     )
 
+    await message.reply_text("Filter removed")
+
 
 # ── Trigger Filter ────────────────────────────────────────────────────────────
 
@@ -105,6 +114,7 @@ async def stop_filter(_, message: Message) -> None:
     & ~filters.command("stop")
 )
 async def trigger_filter(_, message: Message) -> None:
+
     if not message.text:
         return
 
