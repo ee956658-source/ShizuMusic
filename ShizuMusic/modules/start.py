@@ -221,42 +221,65 @@ async def start_handler(_, message: Message) -> None:
                 reply_markup=kb,
             )
 
-        # ── Group setup message ──────────────────────────────────────────────
-        admin_msg = (
-            rich_img("https://files.catbox.moe/wg7rjl.jpg")
-            + rich_note(
-                "<p>❍ ʜᴇʏ, ɢʟᴀᴅ ᴛᴏ ʙᴇ ᴘᴀʀᴛ ᴏғ ᴛʜɪs ᴄʜᴀᴛ! 🚀</p>"
-                "<p>❍ ʜᴇʟᴘ ᴍᴇ sᴇᴛ ᴜᴘ ʙʏ ɢɪᴠɪɴɢ ᴛʜᴇsᴇ ᴀᴅᴍɪɴ ᴘᴏᴡᴇʀs:</p>"
-                "<p>❍ ᴄʟᴇᴀɴ/ᴅᴇʟᴇᴛᴇ ᴄʜᴀᴛ ᴍᴇssᴀɢᴇs<br>"
-                "❍ ᴍᴀɴᴀɢᴇ & sᴛʀᴇᴀᴍ ᴠᴏɪᴄᴇ/ᴠɪᴅᴇᴏ<br>"
-                "❍ ᴀᴅᴅ ɴᴇᴡ ᴍᴇᴍʙᴇʀs ᴠɪᴀ ʟɪɴᴋ</p>"
-                "<p>ɪ ɴᴇᴇᴅ ᴛʜᴇsᴇ ᴀᴄᴄᴇssᴇs ᴛᴏ ʀᴜɴ sᴍᴏᴏᴛʜʟʏ "
-                "ᴡɪᴛʜᴏᴜᴛ ᴀɴʏ ᴇʀʀᴏʀs! ⚡</p>"
-            )
-        )
+        try:
+            add_broadcast_chat(chat_id, "group")
+        except Exception:
+            pass
 
-        admin_kb = InlineKeyboardMarkup([[
+
+# ── Bot added to group ────────────────────────────────────────────────────────
+
+@bot.on_message(filters.new_chat_members)
+async def bot_added_to_group(_, message: Message) -> None:
+
+    if not message.new_chat_members:
+        return
+
+    try:
+        me = await bot.get_me()
+    except Exception:
+        return
+
+    bot_added = any(
+        member.id == me.id
+        for member in message.new_chat_members
+    )
+
+    if not bot_added:
+        return
+
+    admin_msg = (
+        rich_img("https://files.catbox.moe/wg7rjl.jpg")
+        + rich_note(
+            "<p>❍ ʜᴇʏ, ɢʟᴀᴅ ᴛᴏ ʙᴇ ᴘᴀʀᴛ ᴏғ ᴛʜɪs ᴄʜᴀᴛ! 🚀</p>"
+            "<p>❍ ʜᴇʟᴘ ᴍᴇ sᴇᴛ ᴜᴘ ʙʏ ɢɪᴠɪɴɢ ᴛʜᴇsᴇ ᴀᴅᴍɪɴ ᴘᴏᴡᴇʀs:</p>"
+            "<p>❍ ᴄʟᴇᴀɴ/ᴅᴇʟᴇᴛᴇ ᴄʜᴀᴛ ᴍᴇssᴀɢᴇs<br>"
+            "❍ ᴍᴀɴᴀɢᴇ & sᴛʀᴇᴀᴍ ᴠᴏɪᴄᴇ/ᴠɪᴅᴇᴏ<br>"
+            "❍ ᴀᴅᴅ ɴᴇᴡ ᴍᴇᴍʙᴇʀs ᴠɪᴀ ʟɪɴᴋ</p>"
+            "<p>ɪ ɴᴇᴇᴅ ᴛʜᴇsᴇ ᴀᴄᴄᴇssᴇs ᴛᴏ ʀᴜɴ sᴍᴏᴏᴛʜʟʏ "
+            "ᴡɪᴛʜᴏᴜᴛ ᴀɴʏ ᴇʀʀᴏʀs! ⚡</p>"
+        )
+    )
+
+    admin_kb = InlineKeyboardMarkup([
+        [
             InlineKeyboardButton(
                 " ᴍʏ ᴏᴡɴᴇʀ ",
                 url="tg://user?id=7983098956",
                 style=enums.ButtonStyle.DEFAULT,
             )
-        ]])
+        ]
+    ])
 
-        try:
-            await rich_send(
-                bot,
-                chat_id,
-                admin_msg,
-                reply_markup=admin_kb,
-            )
-        except Exception:
-            pass
-
-        try:
-            add_broadcast_chat(chat_id, "group")
-        except Exception:
-            pass
+    try:
+        await rich_send(
+            bot,
+            message.chat.id,
+            admin_msg,
+            reply_markup=admin_kb,
+        )
+    except Exception as e:
+        print(f"[bot_added_to_group] {e}")
 
 
 # ── /help ─────────────────────────────────────────────────────────────────────
