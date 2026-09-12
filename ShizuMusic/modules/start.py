@@ -20,14 +20,12 @@ from ShizuMusic import bot
 from ShizuMusic.modules.block import user_allowed
 from ShizuMusic.utils.db import add_broadcast_chat, add_served_chat, add_served_user
 from ShizuMusic.utils.rich_ui import (
-    rich_details,
-    rich_esc,
-    rich_heading,
-    rich_img,
     rich_kv_table,
     rich_note,
     rich_send,
-    rich_table,
+    rich_img,
+    rich_esc,
+    rich_heading,
     sanitize_display_name,
 )
 
@@ -74,7 +72,7 @@ async def start_handler(_, message: Message) -> None:
             + rich_note(
                 f"<p>ʜᴇʏ <a href='tg://user?id={uid}'>{rich_esc(name)}</a> — "
                 "ɢʟᴀᴅ ʏᴏᴜ ғᴏᴜɴᴅ ᴍᴇ! 🎧♬</p>"
-                "<p>ᴛʜɪs ɪs ʏᴏᴜʀ ᴘᴇʀsᴏɴᴀʟ ᴍᴜsɪᴄ ᴄᴏʀɴᴇʀ ✦🎶</p>"
+                "<p>ᴛʜɪs ɪs ʏᴏᴜʀ ᴩᴇʀsᴏɴᴀʟ ᴍᴜsɪᴄ ᴄᴏʀɴᴇʀ ✦🎶</p>"
                 "<p>ᴄʜᴏᴏsᴇ ᴛʜᴇ sᴏɴɢ • ɪ ʜᴀɴᴅʟᴇ ᴛʜᴇ ᴠɪʙᴇ⚡</p>"
                 "<p>sᴍᴀʀᴛ ᴄᴏɴᴛʀᴏʟs • sᴍᴏᴏᴛʜ ᴘʟᴀʏʙᴀᴄᴋ🎧</p>"
                 "<p>ᴄʟᴇᴀɴ, ʟᴏᴡ-ʟᴀɢ sᴛʀᴇᴀᴍɪɴɢ.</p>"
@@ -210,7 +208,7 @@ async def start_handler(_, message: Message) -> None:
         ])
 
         try:
-            sent = await rich_send(
+            await rich_send(
                 bot,
                 chat_id,
                 caption,
@@ -218,38 +216,41 @@ async def start_handler(_, message: Message) -> None:
             )
         except FloodWait as fw:
             await asyncio.sleep(fw.value + 1)
-            sent = await rich_send(
+            await rich_send(
                 bot,
                 chat_id,
                 caption,
                 reply_markup=kb,
             )
 
+        # ── Group setup message ──────────────────────────────────────────────
         admin_msg = (
-            rich_heading("ᴛʜᴀɴᴋs ғᴏʀ ᴀᴅᴅɪɴɢ ᴍᴇ! 🥀", level=2)
-            + rich_note(
-                "<p>ᴘʟᴇᴀsᴇ ᴍᴀᴋᴇ ᴍᴇ ᴀɴ ᴀᴅᴍɪɴ "
-                "ᴡɪᴛʜ ᴛʜᴇsᴇ ᴘᴇʀᴍɪssɪᴏɴs:</p>"
-                "<p>❍ ᴅᴇʟᴇᴛᴇ ᴍᴇssᴀɢᴇs<br>"
-                "❍ ᴍᴀɴᴀɢᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛs<br>"
-                "❍ ɪɴᴠɪᴛᴇ ᴜsᴇʀs</p>"
-            )
-            + rich_note(
-                "ᴡɪᴛʜᴏᴜᴛ ᴀᴅᴍɪɴ ᴘᴇʀᴍs "
-                "sᴏᴍᴇ ғᴇᴀᴛᴜʀᴇs ᴡᴏɴ'ᴛ ᴡᴏʀᴋ! 🚫"
+            rich_note(
+                "<p>❍ ʜᴇʏ, ɢʟᴀᴅ ᴛᴏ ʙᴇ ᴘᴀʀᴛ ᴏғ ᴛʜɪs ᴄʜᴀᴛ! 🚀</p>"
+                "<p>❍ ʜᴇʟᴘ ᴍᴇ sᴇᴛ ᴜᴘ ʙʏ ɢɪᴠɪɴɢ ᴛʜᴇsᴇ ᴀᴅᴍɪɴ ᴘᴏᴡᴇʀs:</p>"
+                "<p>❍ ᴄʟᴇᴀɴ/ᴅᴇʟᴇᴛᴇ ᴄʜᴀᴛ ᴍᴇssᴀɢᴇs<br>"
+                "❍ ᴍᴀɴᴀɢᴇ & sᴛʀᴇᴀᴍ ᴠɪᴏᴄᴇ/ᴠɪᴅᴇᴏ<br>"
+                "❍ ᴀᴅᴅ ɴᴇᴡ ᴍᴇᴍʙᴇʀs ᴠɪᴀ ʟɪɴᴋ</p>"
+                "<p>ɪ ɴᴇᴇᴅ ᴛʜᴇsᴇ ᴀᴄᴄᴇssᴇs ᴛᴏ ʀᴜɴ sᴍᴏᴏᴛʜʟʏ "
+                "ᴡɪᴛʜᴏᴜᴛ ᴀɴʏ ᴇʀʀᴏʀs! ⚡</p>"
             )
         )
 
         admin_kb = InlineKeyboardMarkup([[
             InlineKeyboardButton(
-                "⚡ ᴍᴀᴋᴇ ᴍᴇ ᴀᴅᴍɪɴ ⚡",
-                url=f"tg://user?id={(await bot.get_me()).id}",
-                style=enums.ButtonStyle.DANGER,
-            )
+                "ᴍʏ ᴏᴡɴᴇʀ",
+                url="tg://user?id=7983098956",
+                style=enums.ButtonStyle.DEFAULT,
+            ),
+            InlineKeyboardButton(
+                "ᴄʜᴀɴɴᴇʟ",
+                url="https://t.me/VIP_PFP_SP",
+                style=enums.ButtonStyle.DEFAULT,
+            ),
         ]])
 
         try:
-            admin_sent = await rich_send(
+            await rich_send(
                 bot,
                 chat_id,
                 admin_msg,
@@ -269,10 +270,6 @@ async def start_handler(_, message: Message) -> None:
 @bot.on_message(filters.command("help") & user_allowed)
 async def help_handler(_, message: Message) -> None:
 
-    uid = message.from_user.id
-    name = sanitize_display_name(message.from_user.first_name)
-
-    # ── Delete the user's /help command message ───────────────────────────────
     try:
         await message.delete()
     except Exception:
@@ -281,60 +278,60 @@ async def help_handler(_, message: Message) -> None:
     kb = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "ᴧᴅᴍɪɴ",
+                "ᴀᴅᴍɪɴ",
                 callback_data="help_admin",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
-                "ᴧ-ᴘʟᴀʏ",
+                "ᴀ-ᴘʟᴀʏ",
                 callback_data="help_autoplay",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
-                "ɢ-ᴄᴧsᴛ",
+                "ɢ-ᴄᴀsᴛ",
                 callback_data="help_gcast",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
         ],
         [
             InlineKeyboardButton(
-                "ʙʟ-ᴄʜᴧᴛ",
+                "ʙʟ-ᴄʜᴀᴛ",
                 callback_data="help_blchat",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
                 "ʙʟ-ᴜsᴇʀs",
                 callback_data="help_blusers",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
                 "ᴘɪɴɢ",
                 callback_data="help_ping",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
         ],
         [
             InlineKeyboardButton(
                 "ᴘʟᴀʏ",
                 callback_data="help_play",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
                 "sᴘᴇᴇᴅ",
                 callback_data="help_speed",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
             InlineKeyboardButton(
-                "ɪɴғᴏ",
+                "ʟᴏᴏᴘ",
                 callback_data="help_info",
-                style=enums.ButtonStyle.PRIMARY,
+                style=enums.ButtonStyle.DEFAULT,
             ),
         ],
         [
             InlineKeyboardButton(
-                "⌯ ᴄʟᴏsᴇ ⌯",
+                "≡ ᴄʟᴏsᴇ ≡",
                 callback_data="close_help",
-                style=enums.ButtonStyle.DANGER,
+                style=enums.ButtonStyle.DEFAULT,
             ),
         ],
     ])
@@ -342,30 +339,13 @@ async def help_handler(_, message: Message) -> None:
     photo = random.choice(config.START_PHOTOS)
 
     caption = (
-        rich_heading("📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ", level=3)
-        + rich_img(photo)
+        rich_img(photo)
         + rich_note(
-    "ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ<br><br>"
-    "ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ"
+            "ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ "
+            "ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ"
+            "<br><br>"
+            "ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ"
         )
-        + rich_details(
-            "✦ ʜᴇʟᴘ ғᴇᴀᴛᴜʀᴇs ✦",
-            rich_table(
-                ["ғᴇᴀᴛᴜʀᴇ", "ᴅᴇᴛᴀɪʟs"],
-                [
-                    (
-                        "✉️ ʜᴇʟᴘ ᴍᴇɴᴜ",
-                        "ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /",
-                    ),
-                ],
-            ),
-            open=True,
-        )
-        + rich_note(
-            "ᴘᴏᴡᴇʀᴇᴅ ʙʏ » "
-            "<a href='https://t.me/PBXCHATS'>sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a>"
-        )
-        
     )
 
     await rich_send(
