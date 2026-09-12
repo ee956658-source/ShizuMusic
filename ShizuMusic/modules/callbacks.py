@@ -10,8 +10,11 @@ import asyncio
 import random
 
 from pyrogram import enums
-from pyrogram.enums import ParseMode
-from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 
 import config
 from ShizuMusic import bot, call_py
@@ -19,6 +22,7 @@ from ShizuMusic.core.call import leave_vc
 from ShizuMusic.core.player import play_song
 from ShizuMusic.core.queue import (
     clear_queue,
+    move_to_front,
     peek_current,
     pop_current,
     queue_size,
@@ -146,7 +150,6 @@ _HELP_KB = InlineKeyboardMarkup([
 
 
 # ── Category keyboard ─────────────────────────────────────────────────────────
-# Only CLOSE. No BACK.
 
 _CLOSE_KB = InlineKeyboardMarkup([
     [
@@ -163,300 +166,115 @@ _CLOSE_KB = InlineKeyboardMarkup([
 
 _HELP_TEXTS = {
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ADMIN
-    # ─────────────────────────────────────────────────────────────────────────
-
     "help_admin": {
         "title": "⚙️ ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "ᴍᴀɴᴀɢᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ ᴘʟᴀʏʙᴀᴄᴋ ᴡɪᴛʜ ᴇssᴇɴᴛɪᴀʟ ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟs.",
         "rows": [
-            (
-                _cmd("/pause"),
-                "ᴘᴀᴜsᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛʟʏ ᴘʟᴀʏɪɴɢ ᴛʀᴀᴄᴋ",
-            ),
-            (
-                _cmd("/resume"),
-                "ʀᴇsᴜᴍᴇ ᴛʜᴇ ᴘᴀᴜsᴇᴅ ᴘʟᴀʏʙᴀᴄᴋ",
-            ),
-            (
-                _cmd("/skip"),
-                "sᴋɪᴘ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ᴀɴᴅ ᴘʟᴀʏ ᴛʜᴇ ɴᴇxᴛ ᴏɴᴇ",
-            ),
-            (
-                _cmd("/stop") + ", " + _cmd("/end"),
-                "sᴛᴏᴘ ᴘʟᴀʏʙᴀᴄᴋ ᴀɴᴅ ʟᴇᴀᴠᴇ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ",
-            ),
-            (
-                _cmd("/clear"),
-                "ʀᴇᴍᴏᴠᴇ ᴀʟʟ ᴛʀᴀᴄᴋs ғʀᴏᴍ ᴛʜᴇ ǫᴜᴇᴜᴇ",
-            ),
-            (
-                _cmd("/seek") + " &lt;seconds&gt;",
-                "ᴍᴏᴠᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ғᴏʀᴡᴀʀᴅ ʙʏ ᴛʜᴇ sᴘᴇᴄɪғɪᴇᴅ sᴇᴄᴏɴᴅs",
-            ),
-            (
-                _cmd("/seekback") + " &lt;seconds&gt;",
-                "ᴍᴏᴠᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ʙᴀᴄᴋᴡᴀʀᴅ ʙʏ ᴛʜᴇ sᴘᴇᴄɪғɪᴇᴅ sᴇᴄᴏɴᴅs",
-            ),
-            (
-                _cmd("/reboot"),
-                "ʀᴇsᴇᴛ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴄʜᴀᴛ sᴛᴀᴛᴇ ᴀɴᴅ ʟᴇᴀᴠᴇ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ",
-            ),
+            (_cmd("/pause"), "ᴘᴀᴜsᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛʟʏ ᴘʟᴀʏɪɴɢ ᴛʀᴀᴄᴋ"),
+            (_cmd("/resume"), "ʀᴇsᴜᴍᴇ ᴛʜᴇ ᴘᴀᴜsᴇᴅ ᴘʟᴀʏʙᴀᴄᴋ"),
+            (_cmd("/skip"), "sᴋɪᴘ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ᴀɴᴅ ᴘʟᴀʏ ᴛʜᴇ ɴᴇxᴛ ᴏɴᴇ"),
+            (_cmd("/stop") + ", " + _cmd("/end"), "sᴛᴏᴘ ᴘʟᴀʏʙᴀᴄᴋ ᴀɴᴅ ʟᴇᴀᴠᴇ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ"),
+            (_cmd("/clear"), "ʀᴇᴍᴏᴠᴇ ᴀʟʟ ᴛʀᴀᴄᴋs ғʀᴏᴍ ᴛʜᴇ ǫᴜᴇᴜᴇ"),
+            (_cmd("/seek") + " &lt;seconds&gt;", "ᴍᴏᴠᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ғᴏʀᴡᴀʀᴅ ʙʏ ᴛʜᴇ sᴘᴇᴄɪғɪᴇᴅ sᴇᴄᴏɴᴅs"),
+            (_cmd("/seekback") + " &lt;seconds&gt;", "ᴍᴏᴠᴇ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴛʀᴀᴄᴋ ʙᴀᴄᴋᴡᴀʀᴅ ʙʏ ᴛʜᴇ sᴘᴇᴄɪғɪᴇᴅ sᴇᴄᴏɴᴅs"),
+            (_cmd("/reboot"), "ʀᴇsᴇᴛ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ᴄʜᴀᴛ sᴛᴀᴛᴇ ᴀɴᴅ ʟᴇᴀᴠᴇ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ"),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # AUTOPLAY
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_autoplay": {
         "title": "🔁 ᴀᴜᴛᴏᴘʟᴀʏ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "ᴋᴇᴇᴘ ʏᴏᴜʀ ᴍᴜsɪᴄ ᴘʟᴀʏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ʙᴀsᴇᴅ ᴏɴ ʏᴏᴜʀ ᴄʜᴏsᴇɴ ǫᴜᴇʀʏ. ᴡʜᴇɴ ᴛʜᴇ ǫᴜᴇᴜᴇ ʀᴜɴs ᴏᴜᴛ, ᴀᴜᴛᴏᴘʟᴀʏ ᴡɪʟʟ ғɪɴᴅ ᴀɴᴅ ᴘʟᴀʏ ᴀ ɴᴇᴡ ᴛʀᴀᴄᴋ ᴛᴏ ᴋᴇᴇᴘ ᴛʜᴇ ᴍᴜsɪᴄ ɢᴏɪɴɢ.",
         "rows": [
-            (
-                _cmd("/autoplay") + " &lt;query&gt;",
-                "ᴇɴᴀʙʟᴇ ᴀᴜᴛᴏᴘʟᴀʏ ᴜsɪɴɢ ʏᴏᴜʀ ᴄʜᴏsᴇɴ ǫᴜᴇʀʏ",
-            ),
-            (
-                _cmd("/end") + ", " + _cmd("/stop"),
-                "sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ ᴀɴᴅ ᴄʟᴇᴀʀ ᴛʜᴇ ǫᴜᴇᴜᴇ",
-            ),
-            (
-                _cmd("/autoplay") + " sidhu moose wala",
-                "ᴇxᴀᴍᴘʟᴇ",
-            ),
-            (
-                _cmd("/autoplay") + " arijit singh",
-                "ᴇxᴀᴍᴘʟᴇ",
-            ),
+            (_cmd("/autoplay") + " &lt;query&gt;", "ᴇɴᴀʙʟᴇ ᴀᴜᴛᴏᴘʟᴀʏ ᴜsɪɴɢ ʏᴏᴜʀ ᴄʜᴏsᴇɴ ǫᴜᴇʀʏ"),
+            (_cmd("/end") + ", " + _cmd("/stop"), "sᴛᴏᴘ ᴀᴜᴛᴏᴘʟᴀʏ ᴀɴᴅ ᴄʟᴇᴀʀ ᴛʜᴇ ǫᴜᴇᴜᴇ"),
+            (_cmd("/autoplay") + " sidhu moose wala", "ᴇxᴀᴍᴘʟᴇ"),
+            (_cmd("/autoplay") + " arijit singh", "ᴇxᴀᴍᴘʟᴇ"),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # GCAST
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_gcast": {
         "title": "📢 ɢ-ᴄᴀsᴛ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "",
         "rows": [
-            (
-                _cmd("/broadcast") + " [ᴍᴇssᴀɢᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ]",
-                "ʙʀᴏᴀᴅᴄᴀsᴛ ᴀ ᴍᴇssᴀɢᴇ ᴛᴏ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ.",
-            ),
-            (
-                "",
-                "ʙʀᴏᴀᴅᴄᴀsᴛɪɴɢ ᴍᴏᴅᴇs :",
-            ),
-            (
-                "-pin",
-                "ᴩɪɴs ʏᴏᴜʀ ʙʀᴏᴀᴅᴄᴀsᴛᴇᴅ ᴍᴇssᴀɢᴇs ɪɴ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs.",
-            ),
-            (
-                "-pinloud",
-                "ᴩɪɴs ʏᴏᴜʀ ʙʀᴏᴀᴅᴄᴀsᴛᴇᴅ ᴍᴇssᴀɢᴇ ɪɴ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs ᴀɴᴅ sᴇɴᴅ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴛᴏ ᴛʜᴇ ᴍᴇᴍʙᴇʀs.",
-            ),
-            (
-                "-user",
-                "ʙʀᴏᴀᴅᴄᴀsᴛs ᴛʜᴇ ᴍᴇssᴀɢᴇ ᴛᴏ ᴛʜᴇ ᴜsᴇʀs ᴡʜᴏ ʜᴀᴠᴇ sᴛᴀʀᴛᴇᴅ ʏᴏᴜʀ ʙᴏᴛ.",
-            ),
-            (
-                "-assistant",
-                "ʙʀᴏᴀᴅᴄᴀsᴛ ʏᴏᴜʀ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴛʜᴇ ᴀssɪᴛᴀɴᴛ ᴀᴄᴄᴏᴜɴᴛ ᴏғ ᴛʜᴇ ʙᴏᴛ.",
-            ),
-            (
-                "-nobot",
-                "ғᴏʀᴄᴇs ᴛʜᴇ ʙᴏᴛ ᴛᴏ ɴᴏᴛ ʙʀᴏᴀᴅᴄᴀsᴛ ᴛʜᴇ ᴍᴇssᴀɢᴇ.",
-            ),
-            (
-                "",
-                "ᴇxᴀᴍᴩʟᴇ: "
-                + _cmd("/broadcast")
-                + " -user -assistant -pin ᴛᴇsᴛɪɴɢ ʙʀᴏᴀᴅᴄᴀsᴛ",
-            ),
+            (_cmd("/broadcast") + " [ᴍᴇssᴀɢᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ]", "ʙʀᴏᴀᴅᴄᴀsᴛ ᴀ ᴍᴇssᴀɢᴇ ᴛᴏ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ."),
+            ("", "ʙʀᴏᴀᴅᴄᴀsᴛɪɴɢ ᴍᴏᴅᴇs :"),
+            ("-pin", "ᴩɪɴs ʏᴏᴜʀ ʙʀᴏᴀᴅᴄᴀsᴛᴇᴅ ᴍᴇssᴀɢᴇs ɪɴ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs."),
+            ("-pinloud", "ᴩɪɴs ʏᴏᴜʀ ʙʀᴏᴀᴅᴄᴀsᴛᴇᴅ ᴍᴇssᴀɢᴇ ɪɴ sᴇʀᴠᴇᴅ ᴄʜᴀᴛs ᴀɴᴅ sᴇɴᴅ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴛᴏ ᴛʜᴇ ᴍᴇᴍʙᴇʀs."),
+            ("-user", "ʙʀᴏᴀᴅᴄᴀsᴛs ᴛʜᴇ ᴍᴇssᴀɢᴇ ᴛᴏ ᴛʜᴇ ᴜsᴇʀs ᴡʜᴏ ʜᴀᴠᴇ sᴛᴀʀᴛᴇᴅ ʏᴏᴜʀ ʙᴏᴛ."),
+            ("-assistant", "ʙʀᴏᴀᴅᴄ ʏᴏᴜʀ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴛʜᴇ ᴀssɪᴛᴀɴᴛ ᴀᴄᴄᴏᴜɴᴛ ᴏғ ᴛʜᴇ ʙᴏᴛ."),
+            ("-nobot", "ғᴏʀᴄᴇs ᴛʜᴇ ʙᴏᴛ ᴛᴏ ɴᴏᴛ ʙʀᴏᴀᴅᴄᴀsᴛ ᴛʜᴇ ᴍᴇssᴀɢᴇ."),
+            ("", "ᴇxᴀᴍᴩʟᴇ: " + _cmd("/broadcast") + " -user -assistant -pin ᴛᴇsᴛɪɴɢ ʙʀᴏᴀᴅᴄᴀsᴛ"),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BLACKLIST CHAT
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_blchat": {
         "title": "🚫 ʙʟ-ᴄʜᴀᴛ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "",
         "rows": [
-            (
-                "",
-                "**ᴄʜᴀᴛ ʙʟᴀᴄᴋʟɪsᴛ ғᴇᴀᴛᴜʀᴇ :** [ᴏɴʟʏ ғᴏʀ sᴜᴅᴏᴇʀs]",
-            ),
-            (
-                "",
-                "ʀᴇsᴛʀɪᴄᴛ sʜɪᴛ ᴄʜᴀᴛs ᴛᴏ ᴜsᴇ ᴏᴜʀ ᴘʀᴇᴄɪᴏᴜs ʙᴏᴛ.",
-            ),
-            (
-                _cmd("/blacklistchat") + " [ᴄʜᴀᴛ ɪᴅ]",
-                "ʙʟᴀᴄᴋʟɪsᴛ ᴀ ᴄʜᴀᴛ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜᴇ ʙᴏᴛ.",
-            ),
-            (
-                _cmd("/whitelistchat") + " [ᴄʜᴀᴛ ɪᴅ]",
-                "ᴡʜɪᴛᴇʟɪsᴛ ᴛʜᴇ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴄʜᴀᴛ.",
-            ),
-            (
-                _cmd("/blacklistedchat"),
-                "sʜᴏᴡs ᴛʜᴇ ʟɪsᴛ ᴏғ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴄʜᴀᴛs.",
-            ),
+            ("", "**ᴄʜᴀᴛ ʙʟᴀᴄᴋʟɪsᴛ ғᴇᴀᴛᴜʀᴇ :** [ᴏɴʟʏ ғᴏʀ sᴜᴅᴏᴇʀs]"),
+            ("", "ʀᴇsᴛʀɪᴄᴛ sʜɪᴛ ᴄʜᴀᴛs ᴛᴏ ᴜsᴇ ᴏᴜʀ ᴘʀᴇᴄɪᴏᴜs ʙᴏᴛ."),
+            (_cmd("/blacklistchat") + " [ᴄʜᴀᴛ ɪᴅ]", "ʙʟᴀᴄᴋʟɪsᴛ ᴀ ᴄʜᴀᴛ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜᴇ ʙᴏᴛ."),
+            (_cmd("/whitelistchat") + " [ᴄʜᴀᴛ ɪᴅ]", "ᴡʜɪᴛᴇʟɪsᴛ ᴛʜᴇ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴄʜᴀᴛ."),
+            (_cmd("/blacklistedchat"), "sʜᴏᴡs ᴛʜᴇ ʟɪsᴛ ᴏғ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴄʜᴀᴛs."),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BLACKLIST USERS
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_blusers": {
         "title": "🚫 ʙʟ-ᴜsᴇʀs ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "",
         "rows": [
-            (
-                "",
-                "**ʙʟᴏᴄᴋ ᴜsᴇʀs:** [ᴏɴʟʏ ғᴏʀ sᴜᴅᴏᴇʀs]",
-            ),
-            (
-                "",
-                "sᴛᴀʀᴛs ɪɢɴᴏʀɪɴɢ ᴛʜᴇ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴜsᴇʀ, sᴏ ᴛʜᴀᴛ ʜᴇ ᴄᴀɴ'ᴛ ᴜsᴇ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs.",
-            ),
-            (
-                _cmd("/block") + " [ᴜsᴇʀɴᴀᴍᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴜsᴇʀ]",
-                "ʙʟᴏᴄᴋ ᴛʜᴇ ᴜsᴇʀ ғʀᴏᴍ ᴏᴜʀ ʙᴏᴛ.",
-            ),
-            (
-                _cmd("/unblock") + " [ᴜsᴇʀɴᴀᴍᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴜsᴇʀ]",
-                "ᴜɴʙʟᴏᴄᴋs ᴛʜᴇ ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀ.",
-            ),
-            (
-                _cmd("/blockedusers"),
-                "sʜᴏᴡs ᴛʜᴇ ʟɪsᴛ ᴏғ ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs.",
-            ),
+            ("", "**ʙʟᴏᴄᴋ ᴜsᴇʀs:** [ᴏɴʟʏ ғᴏʀ sᴜᴅᴏᴇʀs]"),
+            ("", "sᴛᴀʀᴛs ɪɢɴᴏʀɪɴɢ ᴛʜᴇ ʙʟᴀᴄᴋʟɪsᴛᴇᴅ ᴜsᴇʀ, sᴏ ᴛʜᴀᴛ ʜᴇ ᴄᴀɴ'ᴛ ᴜsᴇ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs."),
+            (_cmd("/block") + " [ᴜsᴇʀɴᴀᴍᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴜsᴇʀ]", "ʙʟᴏᴄᴋ ᴛʜᴇ ᴜsᴇʀ ғʀᴏᴍ ᴏᴜʀ ʙᴏᴛ."),
+            (_cmd("/unblock") + " [ᴜsᴇʀɴᴀᴍᴇ ᴏʀ ʀᴇᴩʟʏ ᴛᴏ ᴀ ᴜsᴇʀ]", "ᴜɴʙʟᴏᴄᴋs ᴛʜᴇ ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀ."),
+            (_cmd("/blockedusers"), "sʜᴏᴡs ᴛʜᴇ ʟɪsᴛ ᴏғ ʙʟᴏᴄᴋᴇᴅ ᴜsᴇʀs."),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # PING
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_ping": {
         "title": "🏓 ᴘɪɴɢ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "",
         "rows": [
-            (
-                _cmd("/start"),
-                "sᴛᴀʀᴛs ᴛʜᴇ ᴍᴜsɪᴄ ʙᴏᴛ.",
-            ),
-            (
-                _cmd("/help"),
-                "ɢᴇᴛ ʜᴇʟᴩ ᴍᴇɴᴜ ᴡɪᴛʜ ᴇxᴩʟᴀɴᴀᴛɪᴏɴ ᴏғ ᴄᴏᴍᴍᴀɴᴅs.",
-            ),
-            (
-                _cmd("/ping"),
-                "sʜᴏᴡs ᴛʜᴇ ᴩɪɴɢ ᴀɴᴅ sʏsᴛᴇᴍ sᴛᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ.",
-            ),
-            (
-                _cmd("/stats"),
-                "sʜᴏᴡs ᴛʜᴇ ᴏᴠᴇʀᴀʟʟ sᴛᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ.",
-            ),
+            (_cmd("/start"), "sᴛᴀʀᴛs ᴛʜᴇ ᴍᴜsɪᴄ ʙᴏᴛ."),
+            (_cmd("/help"), "ɢᴇᴛ ʜᴇʟᴩ ᴍᴇɴᴜ ᴡɪᴛʜ ᴇxᴩʟᴀɴᴀᴛɪᴏɴ ᴏғ ᴄᴏᴍᴍᴀɴᴅs."),
+            (_cmd("/ping"), "sʜᴏᴡs ᴛʜᴇ ᴩɪɴɢ ᴀɴᴅ sʏsᴛᴇᴍ sᴛᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ."),
+            (_cmd("/stats"), "sʜᴏᴡs ᴛʜᴇ ᴏᴠᴇʀᴀʟʟ sᴛᴀᴛs ᴏғ ᴛʜᴇ ʙᴏᴛ."),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # PLAY
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_play": {
         "title": "🎵 ᴘʟᴀʏ ᴄᴏᴍᴍᴀɴᴅs",
         "desc": "",
         "rows": [
-            (
-                "",
-                "**ᴠ :** sᴛᴀɴᴅs ғᴏʀ ᴠɪᴅᴇᴏ ᴩʟᴀʏ.",
-            ),
-            (
-                "",
-                "**ғᴏʀᴄᴇ :** sᴛᴀɴᴅs ғᴏʀ ғᴏʀᴄᴇ ᴩʟᴀʏ.",
-            ),
-            (
-                _cmd("/play") + " ᴏʀ " + _cmd("/vplay"),
-                "sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ʀᴇǫᴜᴇsᴛᴇᴅ ᴛʀᴀᴄᴋ ᴏɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ.",
-            ),
-            (
-                _cmd("/playforce") + " ᴏʀ " + _cmd("/vplayforce"),
-                "sᴛᴏᴩs ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ᴀɴᴅ sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ʀᴇǫᴜᴇsᴛᴇᴅ ᴛʀᴀᴄᴋ.",
-            ),
+            ("", "**ᴠ :** sᴛᴀɴᴅs ғᴏʀ ᴠɪᴅᴇᴏ ᴩʟᴀʏ."),
+            ("", "**ғᴏʀᴄᴇ :** sᴛᴀɴᴅs ғᴏʀ ғᴏʀᴄᴇ ᴩʟᴀʏ."),
+            (_cmd("/play") + " ᴏʀ " + _cmd("/vplay"), "sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ʀᴇǫᴜᴇsᴛᴇᴅ ᴛʀᴀᴄᴋ ᴏɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ."),
+            (_cmd("/playforce") + " ᴏʀ " + _cmd("/vplayforce"), "sᴛᴏᴩs ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ᴀɴᴅ sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ʀᴇǫᴜᴇsᴛᴇᴅ ᴛʀᴀᴄᴋ."),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # SPEED
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_speed": {
         "title": "🎚️ sᴘᴇᴇᴅ &amp; ᴇғғᴇᴄᴛs",
         "desc": "ᴀᴅᴊᴜsᴛ ᴘʟᴀʏʙᴀᴄᴋ sᴘᴇᴇᴅ ᴀɴᴅ ᴀᴜᴅɪᴏ ᴇғғᴇᴄᴛs.",
         "rows": [
-            (
-                _cmd("/speed") + " &lt;0.25–4.0&gt;",
-                "ᴄʜᴀɴɢᴇ ᴘʟᴀʏʙᴀᴄᴋ sᴘᴇᴇᴅ — ᴇ.ɢ. /speed 1.5",
-            ),
-            (
-                _cmd("/speedreset"),
-                "ʀᴇsᴇᴛ sᴘᴇᴇᴅ ᴛᴏ ɴᴏʀᴍᴀʟ (1.0x)",
-            ),
-            (
-                _cmd("/bass") + " &lt;1–20&gt;",
-                "ʙᴏᴏsᴛ ʙᴀss ʙʏ ɴ ᴅʙ — ᴇ.ɢ. /bass 10",
-            ),
-            (
-                _cmd("/bassoff"),
-                "ᴛᴜʀɴ ᴏғғ ʙᴀss ʙᴏᴏsᴛ",
-            ),
-            (
-                _cmd("/effecton"),
-                "ᴀᴘᴘʟʏ ᴇғғᴇᴄᴛs ᴛᴏ ᴀʟʟ sᴏɴɢs",
-            ),
-            (
-                _cmd("/effectoff"),
-                "ᴅɪsᴀʙʟᴇ ᴀᴜᴛᴏ ᴇғғᴇᴄᴛs",
-            ),
-            (
-                _cmd("/effects"),
-                "sʜᴏᴡ ᴄᴜʀʀᴇɴᴛ ᴇғғᴇᴄᴛ sᴛᴀᴛᴜs",
-            ),
+            (_cmd("/speed") + " &lt;0.25–4.0&gt;", "ᴄʜᴀɴɢᴇ ᴘʟᴀʏʙᴀᴄᴋ sᴘᴇᴇᴅ — ᴇ.ɢ. /speed 1.5"),
+            (_cmd("/speedreset"), "ʀᴇsᴇᴛ sᴘᴇᴇᴅ ᴛᴏ ɴᴏʀᴍᴀʟ (1.0x)"),
+            (_cmd("/bass") + " &lt;1–20&gt;", "ʙᴏᴏsᴛ ʙᴀss ʙʏ ɴ ᴅʙ — ᴇ.ɢ. /bass 10"),
+            (_cmd("/bassoff"), "ᴛᴜʀɴ ᴏғғ ʙᴀss ʙᴏᴏsᴛ"),
+            (_cmd("/effecton"), "ᴀᴘᴘʟʏ ᴇғғᴇᴄᴛs ᴛᴏ ᴀʟʟ sᴏɴɢs"),
+            (_cmd("/effectoff"), "ᴅɪsᴀʙʟᴇ ᴀᴜᴛᴏ ᴇғғᴇᴄᴛs"),
+            (_cmd("/effects"), "sʜᴏᴡ ᴄᴜʀʀᴇɴᴛ ᴇғғᴇᴄᴛ sᴛᴀᴛᴜs"),
         ],
     },
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # LOOP
-    # ─────────────────────────────────────────────────────────────────────────
 
     "help_info": {
         "title": "🔁 ʟᴏᴏᴘ sᴛʀᴇᴀᴍ",
         "desc": "",
         "rows": [
-            (
-                "",
-                "**ʟᴏᴏᴘ sᴛʀᴇᴀᴍ :**",
-            ),
-            (
-                "",
-                "sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ɪɴ ʟᴏᴏᴘ",
-            ),
-            (
-                _cmd("/loop") + " [enable/disable]",
-                "ᴇɴᴀʙʟᴇs/ᴅɪsᴀʙʟᴇs ʟᴏᴏᴘ ғᴏʀ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ",
-            ),
-            (
-                _cmd("/loop") + " [1, 2, 3, ...]",
-                "ᴇɴᴀʙʟᴇs ᴛʜᴇ ʟᴏᴏᴘ ғᴏʀ ᴛʜᴇ ɢɪᴠᴇɴ ᴠᴀʟᴜᴇ.",
-            ),
+            ("", "**ʟᴏᴏᴘ sᴛʀᴇᴀᴍ :**"),
+            ("", "sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ɪɴ ʟᴏᴏᴘ"),
+            (_cmd("/loop") + " [enable/disable]", "ᴇɴᴀʙʟᴇs/ᴅɪsᴀʙʟᴇs ʟᴏᴏᴘ ғᴏʀ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ"),
+            (_cmd("/loop") + " [1, 2, 3, ...]", "ᴇɴᴀʙʟᴇs ᴛʜᴇ ʟᴏᴏᴘ ғᴏʀ ᴛʜᴇ ɢɪᴠᴇɴ ᴠᴀʟᴜᴇ."),
         ],
     },
 }
@@ -481,7 +299,10 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
     # ── Admin check for playback controls ────────────────────────────────────
 
-    if data in ("pause", "resume", "skip", "stop", "clear"):
+    if (
+        data in ("pause", "resume", "skip", "stop", "clear")
+        or data.startswith("playnow:")
+    ):
         if not await is_user_authorized(cbq):
             await cbq.answer(
                 "❍ ᴀᴅᴍɪɴs ᴏɴʟʏ",
@@ -489,9 +310,63 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
             )
             return
 
+    # ── PLAY NOW ─────────────────────────────────────────────────────────────
+
+    if data.startswith("playnow:"):
+
+        try:
+            index = int(data.split(":", 1)[1])
+        except (ValueError, IndexError):
+            await cbq.answer(
+                "ɪɴᴠᴀʟɪᴅ ǫᴜᴇᴜᴇ ɪᴛᴇᴍ",
+                show_alert=True,
+            )
+            return
+
+        song = move_to_front(chat_id, index)
+
+        if not song:
+            await cbq.answer(
+                "ǫᴜᴇᴜᴇ ɪᴛᴇᴍ ɴᴏᴛ ғᴏᴜɴᴅ",
+                show_alert=True,
+            )
+            return
+
+        try:
+            await call_py.leave_call(chat_id)
+        except Exception:
+            pass
+
+        await cbq.answer("ᴘʟᴀʏɪɴɢ ɴᴏᴡ")
+
+        await asyncio.sleep(2)
+
+        try:
+            await cbq.message.delete()
+        except Exception:
+            pass
+
+        dm = await rich_send(
+            bot,
+            chat_id,
+            rich_heading(
+                "▶ ᴘʟᴀʏɪɴɢ ɴᴏᴡ",
+                level=3,
+            )
+            + rich_note(
+                f"ᴛɪᴛʟᴇ — {rich_esc(short(song.get('title', 'Unknown')))}"
+            ),
+        )
+
+        await play_song(
+            chat_id,
+            dm,
+            song,
+        )
+
     # ── PAUSE ────────────────────────────────────────────────────────────────
 
-    if data == "pause":
+    elif data == "pause":
         try:
             await call_py.pause(chat_id)
 
@@ -581,9 +456,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         nxt = peek_current(chat_id)
 
         if nxt:
-            await cbq.answer(
-                "ᴘʟᴀʏɪɴɢ ɴᴇxᴛ"
-            )
+            await cbq.answer("ᴘʟᴀʏɪɴɢ ɴᴇxᴛ")
 
             dm = await rich_send(
                 bot,
@@ -601,9 +474,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
             )
 
         else:
-            await cbq.answer(
-                "sᴋɪᴘᴘᴇᴅ"
-            )
+            await cbq.answer("sᴋɪᴘᴘᴇᴅ")
 
     # ── STOP ─────────────────────────────────────────────────────────────────
 
@@ -611,9 +482,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
         await leave_vc(chat_id)
 
-        await cbq.answer(
-            "sᴛᴏᴘᴘᴇᴅ"
-        )
+        await cbq.answer("sᴛᴏᴘᴘᴇᴅ")
 
         await rich_send(
             bot,
@@ -627,15 +496,13 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
             ),
         )
 
-    # ── CLEAR ────────────────────────────────────────────────────────────────
+    # ── CLEAR ─────────────────────────────────────────────────────────────────
 
     elif data == "clear":
 
         clear_queue(chat_id)
 
-        await cbq.answer(
-            "ǫᴜᴇᴜᴇ ᴄʟᴇᴀʀᴇᴅ"
-        )
+        await cbq.answer("ǫᴜᴇᴜᴇ ᴄʟᴇᴀʀᴇᴅ")
 
         await rich_edit(
             cbq.message,
@@ -654,7 +521,6 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         await cbq.answer()
 
     # ── CLOSE HELP ──────────────────────────────────────────────────────────
-    # Deletes the complete Help message.
 
     elif data == "close_help":
 
@@ -671,25 +537,19 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
         await cbq.answer()
 
-        photo = random.choice(
-            config.START_PHOTOS
-        )
+        photo = random.choice(config.START_PHOTOS)
 
         content = (
             rich_img(photo)
             + rich_note(
                 "ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ "
-                "ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ"
+                "ᴡᴇ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ"
                 "<br><br>"
                 "ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ"
             )
         )
 
-        if getattr(
-            cbq.message,
-            "photo",
-            None,
-        ):
+        if getattr(cbq.message, "photo", None):
 
             try:
                 await cbq.message.delete()
@@ -717,9 +577,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
         await cbq.answer()
 
-        photo = random.choice(
-            config.START_PHOTOS
-        )
+        photo = random.choice(config.START_PHOTOS)
 
         help_data = _HELP_TEXTS.get(data)
 
@@ -740,7 +598,6 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
 
 # ── Legacy Go Back Function ──────────────────────────────────────────────────
-# Kept unchanged so unrelated existing references do not break.
 
 async def _go_back(cbq: CallbackQuery) -> None:
 
@@ -751,9 +608,7 @@ async def _go_back(cbq: CallbackQuery) -> None:
         cbq.from_user.first_name
     )
 
-    photo = random.choice(
-        config.START_PHOTOS
-    )
+    photo = random.choice(config.START_PHOTOS)
 
     caption = (
         rich_img(photo)
@@ -779,23 +634,19 @@ async def _go_back(cbq: CallbackQuery) -> None:
                 [
                     (
                         "🎵 sᴛʀᴇᴀᴍɪɴɢ",
-                        "ᴘʟᴀʏ ᴀᴜᴅɪᴏ &amp; ᴠɪᴅᴇᴏ "
-                        "ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs",
+                        "ᴘʟᴀʏ ᴀᴜᴅɪᴏ &amp; ᴠɪᴅᴇᴏ ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs",
                     ),
                     (
                         "🔁 ᴀᴜᴛᴏᴘʟᴀʏ",
-                        "ᴋᴇᴇᴘs ᴛʜᴇ ǫᴜᴇᴜᴇ "
-                        "ɢᴏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ",
+                        "ᴋᴇᴇᴘs ᴛʜᴇ ǫᴜᴇᴜᴇ ɢᴏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ",
                     ),
                     (
                         "🎚️ ᴇғғᴇᴄᴛs",
-                        "sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟ &amp; "
-                        "ʙᴀss ʙᴏᴏsᴛ",
+                        "sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟ &amp; ʙᴀss ʙᴏᴏsᴛ",
                     ),
                     (
                         "🛡️ ᴍᴏᴅᴇʀᴀᴛɪᴏɴ",
-                        "ʙʟᴏᴄᴋ/ᴜɴʙʟᴏᴄᴋ "
-                        "ᴄʜᴀᴛs &amp; ᴜsᴇʀs",
+                        "ʙʟᴏᴄᴋ/ᴜɴʙʟᴏᴄᴋ ᴄʜᴀᴛs &amp; ᴜsᴇʀs",
                     ),
                 ],
             ),
@@ -803,12 +654,9 @@ async def _go_back(cbq: CallbackQuery) -> None:
         )
         + rich_details(
             "✧ ᴡʜʏ ᴄʜᴏᴏsᴇ ɪᴛ? ✧",
-            "<p>⭐ sɪᴍᴘʟᴇ sʟᴀsʜ "
-            "ᴄᴏᴍᴍᴀɴᴅs, ɴᴏ sᴇᴛᴜᴘ ɴᴇᴇᴅᴇᴅ.</p>"
-            "<p>🎧 ᴄʟᴇᴀɴ, ʟᴏᴡ-ʟᴀɢ "
-            "sᴛʀᴇᴀᴍɪɴɢ.</p>"
-            "<p>❍ ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴇʟᴏᴡ "
-            "ғᴏʀ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs.</p>",
+            "<p>⭐ sɪᴍᴘʟᴇ sʟᴀsʜ ᴄᴏᴍᴍᴀɴᴅs, ɴᴏ sᴇᴛᴜᴘ ɴᴇᴇᴅᴇᴅ.</p>"
+            "<p>🎧 ᴄʟᴇᴀɴ, ʟᴏᴡ-ʟᴀɢ sᴛʀᴇᴀᴍɪɴɢ.</p>"
+            "<p>❍ ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴇʟᴏᴡ ғᴏʀ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs.</p>",
             open=True,
         )
         + rich_note(
@@ -822,7 +670,7 @@ async def _go_back(cbq: CallbackQuery) -> None:
     kb = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "⛩️ ᴧᴅᴅ мᴇ ʙᴧʙʏ ⛩️",
+                "⛩️ ᴧᴅᴅ мᴇ ᴠᴧʙʏ ⛩️",
                 url=f"{config.BOT_LINK}?startgroup=true",
                 style=enums.ButtonStyle.PRIMARY,
             )
