@@ -91,26 +91,26 @@ async def start_handler(_, message: Message) -> None:
         kb = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "⛩️ ᴧᴅᴅ ᴍᴇ ʏᴏᴜʀ ɢʀᴏᴜᴘ ⛩️",
+                    " ᴧᴅᴅ ᴍᴇ ʏᴏᴜʀ ɢʀᴏᴜᴘ ",
                     url=f"{config.BOT_LINK}?startgroup=true",
                     style=enums.ButtonStyle.DEFAULT,
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🏩 ʜᴇʟᴘ & ᴄᴏᴍᴍᴀɴᴅs 🏩",
+                    " ʜᴇʟᴘ & ᴄᴏᴍᴍᴀɴᴅs ",
                     callback_data="show_help",
                     style=enums.ButtonStyle.DEFAULT,
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🫧 ᴏᴡɴᴇʀ 🫧",
+                    " ᴏᴡɴᴇʀ ",
                     url=f"tg://user?id={config.OWNER_ID}",
                     style=enums.ButtonStyle.DEFAULT,
                 ),
                 InlineKeyboardButton(
-                    "🍹 ᴜᴘᴅᴀᴛᴇs 🍹",
+                    " ᴜᴘᴅᴀᴛᴇs ",
                     url=config.UPDATES_CHANNEL,
                     style=enums.ButtonStyle.DEFAULT,
                 ),
@@ -190,7 +190,7 @@ async def start_handler(_, message: Message) -> None:
         kb = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "⛩️ ᴧᴅᴅ ᴍᴇ ʙᴀʙʏ ⛩️",
+                    " ᴧᴅᴅ ᴍᴇ ʙᴀʙʏ ",
                     url=f"{config.BOT_LINK}?startgroup=true",
                     style=enums.ButtonStyle.PRIMARY,
                 ),
@@ -202,7 +202,7 @@ async def start_handler(_, message: Message) -> None:
             ],
             [
                 InlineKeyboardButton(
-                    "🏩 ʜᴇʟᴘ & ᴄᴏᴍᴍᴀɴᴅs 🏩",
+                    " ʜᴇʟᴘ & ᴄᴏᴍᴍᴀɴᴅs ",
                     callback_data="show_help",
                     style=enums.ButtonStyle.PRIMARY,
                 )
