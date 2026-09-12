@@ -778,4 +778,98 @@ async def _go_back(cbq: CallbackQuery) -> None:
                 ],
                 [
                     (
-                        "🎵 s
+                        "🎵 sᴛʀᴇᴀᴍɪɴɢ",
+                        "ᴘʟᴀʏ ᴀᴜᴅɪᴏ &amp; ᴠɪᴅᴇᴏ "
+                        "ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛs",
+                    ),
+                    (
+                        "🔁 ᴀᴜᴛᴏᴘʟᴀʏ",
+                        "ᴋᴇᴇᴘs ᴛʜᴇ ǫᴜᴇᴜᴇ "
+                        "ɢᴏɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ",
+                    ),
+                    (
+                        "🎚️ ᴇғғᴇᴄᴛs",
+                        "sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟ &amp; "
+                        "ʙᴀss ʙᴏᴏsᴛ",
+                    ),
+                    (
+                        "🛡️ ᴍᴏᴅᴇʀᴀᴛɪᴏɴ",
+                        "ʙʟᴏᴄᴋ/ᴜɴʙʟᴏᴄᴋ "
+                        "ᴄʜᴀᴛs &amp; ᴜsᴇʀs",
+                    ),
+                ],
+            ),
+            open=True,
+        )
+        + rich_details(
+            "✧ ᴡʜʏ ᴄʜᴏᴏsᴇ ɪᴛ? ✧",
+            "<p>⭐ sɪᴍᴘʟᴇ sʟᴀsʜ "
+            "ᴄᴏᴍᴍᴀɴᴅs, ɴᴏ sᴇᴛᴜᴘ ɴᴇᴇᴅᴇᴅ.</p>"
+            "<p>🎧 ᴄʟᴇᴀɴ, ʟᴏᴡ-ʟᴀɢ "
+            "sᴛʀᴇᴀᴍɪɴɢ.</p>"
+            "<p>❍ ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴇʟᴏᴡ "
+            "ғᴏʀ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs.</p>",
+            open=True,
+        )
+        + rich_note(
+            "ᴘᴏᴡᴇʀᴇᴅ ʙʏ » "
+            "<a href='https://t.me/PBXCHATS'>"
+            "sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a>"
+        )
+        + _support_updates_pills()
+    )
+
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "⛩️ ᴧᴅᴅ мᴇ ʙᴧʙʏ ⛩️",
+                url=f"{config.BOT_LINK}?startgroup=true",
+                style=enums.ButtonStyle.PRIMARY,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🍬 sᴜᴘᴘᴏʀᴛ 🍬",
+                url=config.SUPPORT_GROUP,
+                style=enums.ButtonStyle.SUCCESS,
+            ),
+            InlineKeyboardButton(
+                "🍹 ᴜᴘᴅᴀᴛᴇs 🍹",
+                url=config.UPDATES_CHANNEL,
+                style=enums.ButtonStyle.SUCCESS,
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🏩 ʜᴇʟᴘ & ᴄᴏᴍᴍᴀɴᴅs 🏩",
+                callback_data="show_help",
+                style=enums.ButtonStyle.PRIMARY,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🫧 ᴏᴡɴᴇʀ 🫧",
+                url=f"tg://user?id={config.OWNER_ID}",
+                style=enums.ButtonStyle.DEFAULT,
+            ),
+            InlineKeyboardButton(
+                "🍡 sᴏᴜʀᴄᴇ 🍡",
+                url="https://github.com/Badmunda05/ShizuMusic/fork",
+                style=enums.ButtonStyle.DEFAULT,
+            ),
+        ],
+    ])
+
+    chat_id = cbq.message.chat.id
+
+    try:
+        await cbq.message.delete()
+    except Exception:
+        pass
+
+    await rich_send(
+        bot,
+        chat_id,
+        caption,
+        reply_markup=kb,
+    )
