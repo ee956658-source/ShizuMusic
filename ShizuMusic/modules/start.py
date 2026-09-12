@@ -365,7 +365,7 @@ async def help_handler(_, message: Message) -> None:
             "ᴘᴏᴡᴇʀᴇᴅ ʙʏ » "
             "<a href='https://t.me/PBXCHATS'>sʜɪᴢᴜ-ᴍᴜsɪᴄ™</a>"
         )
-        + _support_updates_pills()
+        
     )
 
     await rich_send(
