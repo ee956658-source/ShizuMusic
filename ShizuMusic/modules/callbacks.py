@@ -300,7 +300,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
     # ── Admin check for playback controls ────────────────────────────────────
 
     if (
-        data in ("pause", "resume", "skip", "stop", "clear")
+        data in ("pause", "resume", "replay", "skip", "stop", "clear")
         or data.startswith("playnow:")
     ):
         if not await is_user_authorized(cbq):
@@ -415,6 +415,34 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
                 "ғᴀɪʟᴇᴅ ᴛᴏ ʀᴇsᴜᴍᴇ",
                 show_alert=True,
             )
+
+    # ── REPLAY ───────────────────────────────────────────────────────────────
+
+    elif data == "replay":
+
+        current = peek_current(chat_id)
+
+        if not current:
+            await cbq.answer(
+                "ɴᴏ ᴛʀᴀᴄᴋ ɪs ᴘʟᴀʏɪɴɢ",
+                show_alert=True,
+            )
+            return
+
+        await cbq.answer("ʀᴇᴘʟᴀʏɪɴɢ")
+
+        try:
+            await call_py.leave_call(chat_id)
+        except Exception:
+            pass
+
+        await asyncio.sleep(2)
+
+        await play_song(
+            chat_id,
+            cbq.message,
+            current,
+        )
 
     # ── SKIP ─────────────────────────────────────────────────────────────────
 
