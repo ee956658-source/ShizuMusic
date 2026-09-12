@@ -345,9 +345,8 @@ async def help_handler(_, message: Message) -> None:
         rich_heading("📜 ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ", level=3)
         + rich_img(photo)
         + rich_note(
-            f'<p>❍ ʜᴇʏ '
-            f'<a href="tg://user?id={uid}">{rich_esc(name)}</a>, '
-            "ᴘɪᴄᴋ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ sᴇᴇ ɪᴛs ᴄᴏᴍᴍᴀɴᴅs.</p>"
+    "ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ<br><br>"
+    "ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ"
         )
         + rich_details(
             "✦ ʜᴇʟᴘ ғᴇᴀᴛᴜʀᴇs ✦",
