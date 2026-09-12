@@ -70,3 +70,16 @@ def queue_size(chat_id: int) -> int:
 
 def is_empty(chat_id: int) -> bool:
     return queue_size(chat_id) == 0
+
+def move_to_front(chat_id: int, index: int) -> dict | None:
+    queue = chat_queues.get(chat_id)
+
+    if not queue:
+        return None
+
+    if index < 0 or index >= len(queue):
+        return None
+
+    song = queue.pop(index)
+    queue.insert(0, song)
+    return song
