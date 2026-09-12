@@ -52,7 +52,6 @@ async def start_handler(_, message: Message) -> None:
     chat_type = message.chat.type
     photo = random.choice(config.START_PHOTOS)
 
-    # ── Delete the user's /start command message ──────────────────────────────
     try:
         await message.delete()
     except Exception:
@@ -116,7 +115,7 @@ async def start_handler(_, message: Message) -> None:
         ])
 
         try:
-            sent = await rich_send(
+            await rich_send(
                 bot,
                 chat_id,
                 caption,
@@ -124,7 +123,7 @@ async def start_handler(_, message: Message) -> None:
             )
         except FloodWait as fw:
             await asyncio.sleep(fw.value + 1)
-            sent = await rich_send(
+            await rich_send(
                 bot,
                 chat_id,
                 caption,
@@ -136,7 +135,6 @@ async def start_handler(_, message: Message) -> None:
         except Exception:
             pass
 
-        # ── Log new user to LOGGER_ID ────────────────────────────────────────
         if config.LOGGER_ID:
             try:
                 username = message.from_user.username
@@ -225,11 +223,12 @@ async def start_handler(_, message: Message) -> None:
 
         # ── Group setup message ──────────────────────────────────────────────
         admin_msg = (
-            rich_note(
+            rich_img("https://files.catbox.moe/wg7rjl.jpg")
+            + rich_note(
                 "<p>❍ ʜᴇʏ, ɢʟᴀᴅ ᴛᴏ ʙᴇ ᴘᴀʀᴛ ᴏғ ᴛʜɪs ᴄʜᴀᴛ! 🚀</p>"
                 "<p>❍ ʜᴇʟᴘ ᴍᴇ sᴇᴛ ᴜᴘ ʙʏ ɢɪᴠɪɴɢ ᴛʜᴇsᴇ ᴀᴅᴍɪɴ ᴘᴏᴡᴇʀs:</p>"
                 "<p>❍ ᴄʟᴇᴀɴ/ᴅᴇʟᴇᴛᴇ ᴄʜᴀᴛ ᴍᴇssᴀɢᴇs<br>"
-                "❍ ᴍᴀɴᴀɢᴇ & sᴛʀᴇᴀᴍ ᴠɪᴏᴄᴇ/ᴠɪᴅᴇᴏ<br>"
+                "❍ ᴍᴀɴᴀɢᴇ & sᴛʀᴇᴀᴍ ᴠᴏɪᴄᴇ/ᴠɪᴅᴇᴏ<br>"
                 "❍ ᴀᴅᴅ ɴᴇᴡ ᴍᴇᴍʙᴇʀs ᴠɪᴀ ʟɪɴᴋ</p>"
                 "<p>ɪ ɴᴇᴇᴅ ᴛʜᴇsᴇ ᴀᴄᴄᴇssᴇs ᴛᴏ ʀᴜɴ sᴍᴏᴏᴛʜʟʏ "
                 "ᴡɪᴛʜᴏᴜᴛ ᴀɴʏ ᴇʀʀᴏʀs! ⚡</p>"
@@ -238,15 +237,10 @@ async def start_handler(_, message: Message) -> None:
 
         admin_kb = InlineKeyboardMarkup([[
             InlineKeyboardButton(
-                "ᴍʏ ᴏᴡɴᴇʀ",
+                " ᴍʏ ᴏᴡɴᴇʀ ",
                 url="tg://user?id=7983098956",
                 style=enums.ButtonStyle.DEFAULT,
-            ),
-            InlineKeyboardButton(
-                "ᴄʜᴀɴɴᴇʟ",
-                url="https://t.me/VIP_PFP_SP",
-                style=enums.ButtonStyle.DEFAULT,
-            ),
+            )
         ]])
 
         try:
@@ -342,7 +336,7 @@ async def help_handler(_, message: Message) -> None:
         rich_img(photo)
         + rich_note(
             "ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ "
-            "ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ"
+            "ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ"
             "<br><br>"
             "ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ"
         )
