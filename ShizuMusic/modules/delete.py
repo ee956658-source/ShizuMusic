@@ -9,39 +9,58 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
+import config
 from ShizuMusic import bot
 
 
+def is_owner(user_id: int) -> bool:
+    if user_id == getattr(config, "OWNER_ID", 0):
+        return True
+
+    owner_ids = getattr(config, "OWNER_IDS", [])
+    return user_id in owner_ids
+
+
 @bot.on_message(
-    filters.group
-    & filters.command("del")
+    filters.group & filters.command("del")
 )
 async def delete_message(_, message: Message) -> None:
-    # Must be a reply to another message.
+
+    # /del must be used as a reply
     if not message.reply_to_message:
         return
 
-    # Only actual Telegram group admins can use /del.
+    # Check admin permission
     try:
-        member = await bot.get_chat_member(
-            message.chat.id,
-            message.from_user.id,
+        if not is_owner(message.from_user.id):
+            member = await bot.get_chat_member(
+                message.chat.id,
+                message.from_user.id,
+            )
+
+            if member.status not in (
+                "administrator",
+                "owner",
+            ):
+                return
+
+    except Exception:
+        return
+
+    # Delete replied message
+    try:
+        await bot.delete_messages(
+            chat_id=message.chat.id,
+            message_ids=message.reply_to_message.id,
         )
-
-        if member.status not in ("administrator", "owner"):
-            return
-
     except Exception:
         return
 
-    # Delete the replied message.
+    # Delete /del command
     try:
-        await message.reply_to_message.delete()
-    except Exception:
-        return
-
-    # Delete the /del command itself.
-    try:
-        await message.delete()
+        await bot.delete_messages(
+            chat_id=message.chat.id,
+            message_ids=message.id,
+        )
     except Exception:
         pass
