@@ -11,7 +11,6 @@ import re
 import time
 
 from pyrogram import filters
-from pyrogram.enums import ParseMode
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -21,7 +20,12 @@ from pyrogram.types import (
 import config
 from ShizuMusic import bot
 from ShizuMusic.core.player import play_song
-from ShizuMusic.core.queue import add_to_queue, peek_current, queue_size
+from ShizuMusic.core.queue import (
+    add_to_queue,
+    move_to_front,
+    peek_current,
+    queue_size,
+)
 from ShizuMusic.modules.block import group_allowed, user_allowed
 from ShizuMusic.utils.assistant import is_assistant_in, try_join_assistant
 from ShizuMusic.utils.db import add_served_chat, add_served_user
@@ -464,12 +468,8 @@ async def _process_play(
             [
                 [
                     InlineKeyboardButton(
-                        "⌯ sᴋɪᴘ ⌯",
-                        callback_data="skip",
-                    ),
-                    InlineKeyboardButton(
-                        "⌯ ᴄʟᴇᴀʀ ⌯",
-                        callback_data="clear",
+                        "▶ ᴘʟᴀʏ ɴᴏᴡ",
+                        callback_data=f"playnow:{pos - 1}",
                     ),
                 ]
             ]
