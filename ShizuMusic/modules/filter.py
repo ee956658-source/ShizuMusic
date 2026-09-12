@@ -8,45 +8,50 @@ from ShizuMusic.utils.db import (
     delete_filter,
 )
 
+import config
+
 
 async def is_admin_or_owner(message: Message) -> bool:
     if not message.from_user:
         return False
 
+    # Owner check from config
     try:
-        if message.from_user.id == bot.owner_id:
+        owner_id = getattr(config, "OWNER_ID", None)
+        owner_ids = getattr(config, "OWNER_IDS", None)
+
+        if owner_id and message.from_user.id == owner_id:
+            return True
+        if owner_ids and message.from_user.id in owner_ids:
             return True
     except Exception:
         pass
 
+    # Admin / Creator check from chat
     try:
         member = await bot.get_chat_member(
             message.chat.id,
             message.from_user.id,
         )
-        return member.status in ("administrator", "owner")
+        return member.status in ("administrator", "creator", "owner")
     except Exception:
         return False
 
 
 @bot.on_message(
-    filters.group
-    & filters.command("filter")
+    filters.group & filters.command("filter"),
+    group=7
 )
 async def add_filter(_, message: Message) -> None:
     if not await is_admin_or_owner(message):
         return
 
     if not message.reply_to_message:
-        await message.reply_text(
-            "Reply to a message and use /filter <name>"
-        )
+        await message.reply_text("Reply to a message and use /filter <name>")
         return
 
     if len(message.command) < 2:
-        await message.reply_text(
-            "Use /filter <name>"
-        )
+        await message.reply_text("Use /filter <name>")
         return
 
     name = message.command[1].strip().lower()
@@ -58,52 +63,43 @@ async def add_filter(_, message: Message) -> None:
         message.reply_to_message.id,
     )
 
-    await message.reply_text("Filter saved")
+    await message.reply_text("✅ Filter saved")
 
 
 @bot.on_message(
-    filters.group
-    & filters.command("stop")
+    filters.group & filters.command("stop"),
+    group=7
 )
 async def stop_filter(_, message: Message) -> None:
     if not await is_admin_or_owner(message):
         return
 
     if len(message.command) < 2:
-        await message.reply_text(
-            "Use /stop <name>"
-        )
+        await message.reply_text("Use /stop <name>")
         return
 
     name = message.command[1].strip().lower()
 
-    delete_filter(
-        message.chat.id,
-        name,
-    )
+    delete_filter(message.chat.id, name)
 
-    await message.reply_text("Filter removed")
+    await message.reply_text("🗑️ Filter removed")
 
 
 @bot.on_message(
     filters.group
     & filters.text
-    & ~filters.command(["filter", "stop"])
+    & ~filters.command(["filter", "stop"]),
+    group=7
 )
 async def trigger_filter(_, message: Message) -> None:
     if not message.text:
         return
 
     name = message.text.strip().lower()
-
     if not name:
         return
 
-    data = get_filter(
-        message.chat.id,
-        name,
-    )
-
+    data = get_filter(message.chat.id, name)
     if not data:
         return
 
