@@ -10,14 +10,11 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from ShizuMusic import bot
-from ShizuMusic.modules.block import group_allowed, user_allowed
 
 
 @bot.on_message(
     filters.group
     & filters.command("del")
-    & group_allowed
-    & user_allowed
 )
 async def delete_message(_, message: Message) -> None:
     # Must be a reply to another message.
