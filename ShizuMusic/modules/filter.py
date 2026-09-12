@@ -89,7 +89,7 @@ async def stop_filter(_, message: Message) -> None:
     filters.group
     & filters.text
     & ~filters.command(["filter", "stop"]),
-    group=7
+    group=99
 )
 async def trigger_filter(_, message: Message) -> None:
     if not message.text:
