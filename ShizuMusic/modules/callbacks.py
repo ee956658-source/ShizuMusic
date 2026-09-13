@@ -376,7 +376,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
                 bot,
                 chat_id,
                 rich_heading(
-                    "⏸ ˢᴛʀᴇᴀᴍ ᴘᴀᴜsᴇᴅ",
+                    "⏸ ˢᵗʀᴇᴀᴍ ᴘᴀᴜsᴇᴅ",
                     level=3,
                 )
                 + rich_note(
@@ -547,17 +547,6 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
     elif data == "noop":
         await cbq.answer()
-
-    # ── CLOSE PLAYER ────────────────────────────────────────────────────────
-
-    elif data == "close_player":
-
-        await cbq.answer("ᴘʟᴀʏᴇʀ ᴄʟᴏsᴇᴅ")
-
-        try:
-            await cbq.message.delete()
-        except Exception:
-            pass
 
     # ── CLOSE HELP ──────────────────────────────────────────────────────────
 
