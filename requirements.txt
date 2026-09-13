@@ -31,4 +31,4 @@ pymongo==4.17.0
 
 # ── FFmpeg Wrapper ───────────────────────
 ffmpeg-python==0.2.0
-Pillow==11.3.0
+
