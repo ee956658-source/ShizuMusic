@@ -517,11 +517,9 @@ async def _process_play(
         except Exception:
             group_name = "this group"
 
+        # Queue notification: keep the Close button, but match the compact
+        # plain-body layout used by the reference bot.
         kb = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("≡ SKIP ≡", callback_data="skip"),
-                InlineKeyboardButton("≡ CLEAR ≡", callback_data="clear"),
-            ],
             [InlineKeyboardButton("Close", callback_data="close_player")],
         ])
 
@@ -533,12 +531,11 @@ async def _process_play(
                 "Yor × Music 🎧",
                 level=3,
             )
-            + rich_note(
-                f"<p>○ <b>ADDED TO QUEUE</b></p>"
-                f"<p>▎ <b>TITLE</b> — {rich_esc(short(title))}<br>"
-                f"DUR — {iso_to_human(dur_iso)}<br>"
-                f"BY — {rich_esc(req)}<br>"
-                f"POS — #{queue_position}</p>"
+            + (
+                f"<p><b>Added To Queue At #{queue_position}</b></p>"
+                f"<p>✨ <b>Title</b> : {rich_esc(short(title))}<br>"
+                f"Duration : {iso_to_human(dur_iso)} minutes<br>"
+                f"Requested by : {rich_esc(req)}</p>"
             ),
             reply_markup=kb,
         )
