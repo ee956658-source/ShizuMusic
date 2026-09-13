@@ -548,6 +548,17 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
     elif data == "noop":
         await cbq.answer()
 
+    # ── CLOSE PLAYER ────────────────────────────────────────────────────────
+
+    elif data == "close_player":
+
+        await cbq.answer("ᴘʟᴀʏᴇʀ ᴄʟᴏsᴇᴅ")
+
+        try:
+            await cbq.message.delete()
+        except Exception:
+            pass
+
     # ── CLOSE HELP ──────────────────────────────────────────────────────────
 
     elif data == "close_help":
