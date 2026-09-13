@@ -36,6 +36,7 @@ from ShizuMusic.utils.rich_ui import (
     rich_edit,
     rich_esc,
     rich_heading,
+    rich_img,
     rich_kv_table,
     rich_note,
     rich_send,
@@ -527,7 +528,8 @@ async def _process_play(
         await rich_send(
             bot,
             chat_id,
-            rich_heading(
+            (rich_img(thumb) if thumb else "")
+            + rich_heading(
                 "Yor × Music 🎧",
                 level=3,
             )
