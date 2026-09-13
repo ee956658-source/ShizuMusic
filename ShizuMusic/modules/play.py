@@ -11,7 +11,11 @@ import re
 import time
 
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 
 import config
 from ShizuMusic import bot, call_py
@@ -508,26 +512,32 @@ async def _process_play(
         )
 
     else:
-        # Queue notification is intentionally compact, matching the reference
-        # queue card. Keep the Close button below the queue card.
-        queue_position = pos
-        queue_text = (
-            "<p><b><i>Yor × Music 🎧</i></b></p>"
-            f"<p><b>Added To Queue At #{queue_position}</b></p>"
-            f"<p>✨ <b>Title</b> : {rich_esc(short(title))}<br>"
-            f"Duration : {rich_esc(iso_to_human(dur_iso))} minutes<br>"
-            f"Requested by : {rich_esc(req)}</p>"
-        )
+        try:
+            group_name = rich_esc(message.chat.title or "this group")
+        except Exception:
+            group_name = "this group"
 
-        queue_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Close", callback_data="close_player")]
+        # Queue notification: keep the Close button, but match the compact
+        # plain-body layout used by the reference bot.
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Close", callback_data="close_player")],
         ])
 
+        queue_position = pos - 1
         await rich_send(
             bot,
             chat_id,
-            queue_text,
-            reply_markup=queue_markup,
+            rich_heading(
+                "Yor × Music 🎧",
+                level=3,
+            )
+            + (
+                f"<p><b>Added To Queue At #{queue_position}</b></p>"
+                f"<p>✨ <b>Title</b> : {rich_esc(short(title))}<br>"
+                f"Duration : {iso_to_human(dur_iso)} minutes<br>"
+                f"Requested by : {rich_esc(req)}</p>"
+            ),
+            reply_markup=kb,
         )
 
         try:
