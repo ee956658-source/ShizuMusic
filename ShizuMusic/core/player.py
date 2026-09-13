@@ -61,6 +61,7 @@ from ShizuMusic.utils.rich_ui import (
     rich_note,
     rich_send,
 )
+from ShizuMusic.utils.player_thumbnail import make_player_thumbnail
 
 from ShizuMusic.utils.youtube import (
     resolve_stream,
@@ -134,7 +135,19 @@ async def _update_progress(
         kb = _now_playing_kb(elapsed, total)
 
         try:
-            await rich_edit(msg, content, reply_markup=kb)
+            # Player messages are sent as photos so the generated/edit thumbnail
+            # remains visible while the controls/progress are updated.
+            if getattr(msg, "photo", None):
+                caption = rich_to_caption(content)
+                await bot.edit_message_caption(
+                    chat_id=chat_id,
+                    message_id=msg.id,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=kb,
+                )
+            else:
+                await rich_edit(msg, content, reply_markup=kb)
 
         except Exception as e:
             if "MESSAGE_NOT_MODIFIED" not in str(e):
@@ -144,6 +157,19 @@ async def _update_progress(
             break
 
         await asyncio.sleep(18)
+
+
+def rich_to_caption(content: str) -> str:
+    """Flatten the rich player content into Telegram photo-caption HTML."""
+    import re
+    text = re.sub(
+        r"</?(?:h[1-6]|table|thead|tbody|tr|th|td|p|img)\b[^>]*>",
+        "",
+        content,
+        flags=re.I,
+    )
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    return text.strip()
 
 
 # ─────────────────────────────────────────────
@@ -566,34 +592,48 @@ async def play_song(
         )
     )
 
-    content = _now_playing_content(
-        song
+    # Generate a separate edited/player thumbnail from the YouTube artwork.
+    # If rendering fails, fall back to the existing rich-image player.
+    player_thumb = await make_player_thumbnail(
+        song.get("thumbnail", ""),
+        song.get("title", "Unknown Song"),
+        song.get("duration", "0:00"),
     )
 
-    kb = _now_playing_kb(
-        0,
-        total,
+    content = _now_playing_content(song)
+
+    kb = _now_playing_kb(0, total)
+    # Telegram photo caption buttons: add a dedicated Close action below the
+    # player, matching the requested expanded-player layout.
+    kb = InlineKeyboardMarkup(
+        list(kb.inline_keyboard)
+        + [[InlineKeyboardButton("Close", callback_data="close_player")]]
     )
 
-    try:
+    pmsg = None
+    if player_thumb:
+        try:
+            pmsg = await bot.send_photo(
+                chat_id=chat_id,
+                photo=player_thumb,
+                caption=rich_to_caption(content),
+                parse_mode=ParseMode.HTML,
+                reply_markup=kb,
+            )
+            try:
+                await message.delete()
+            except Exception:
+                pass
+        except Exception as e:
+            LOGGER.warning(f"[PLAYER THUMB] send_photo failed: {e}")
 
-        pmsg = await rich_edit(
-            message,
-            content,
-            reply_markup=kb,
-        )
-
-        if pmsg is None:
-            pmsg = message
-
-    except Exception:
-
-        pmsg = await rich_send(
-            bot,
-            chat_id,
-            content,
-            reply_markup=kb,
-        )
+    if pmsg is None:
+        try:
+            pmsg = await rich_edit(message, content, reply_markup=kb)
+            if pmsg is None:
+                pmsg = message
+        except Exception:
+            pmsg = await rich_send(bot, chat_id, content, reply_markup=kb)
 
     asyncio.create_task(
         _update_progress(
