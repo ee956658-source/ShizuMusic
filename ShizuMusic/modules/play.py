@@ -18,13 +18,15 @@ from pyrogram.types import (
 )
 
 import config
-from ShizuMusic import bot
+from ShizuMusic import bot, call_py
 from ShizuMusic.core.player import play_song
 from ShizuMusic.core.queue import (
     add_to_queue,
     move_to_front,
     peek_current,
     queue_size,
+    pop_current,
+    move_to_front,
 )
 from ShizuMusic.modules.block import group_allowed, user_allowed
 from ShizuMusic.utils.assistant import is_assistant_in, try_join_assistant
@@ -82,7 +84,7 @@ async def _run_pending(chat_id: int, delay: int) -> None:
 # ── /play & /vplay command ─────────────────────────────────────────────────────
 @bot.on_message(
     filters.group
-    & filters.regex(r"^/(?P<cmd>v?play)(?:@\w+)?(?:\s+(?P<q>.+))?$")
+    & filters.regex(r"^/(?P<cmd>v?play(?:force)?)(?:@\w+)?(?:\s+(?P<q>.+))?$")
     & group_allowed
     & user_allowed
 )
@@ -90,6 +92,8 @@ async def play_handler(_, message: Message) -> None:
 
     chat_id = message.chat.id
     user_id = message.from_user.id if message.from_user else 0
+    raw_cmd = (message.command[0].lower() if getattr(message, "command", None) else "play")
+    force = raw_cmd in ("playforce", "vplayforce")
 
     _db_track(chat_id, user_id)
 
@@ -153,7 +157,21 @@ async def play_handler(_, message: Message) -> None:
             "thumbnail": thumb,
         }
 
-        add_to_queue(chat_id, song)
+        if force:
+            # Replace the currently playing track, while preserving the rest
+            # of the queue behind the forced track.
+            if queue_size(chat_id):
+                pop_current(chat_id)
+            pos = add_to_queue(chat_id, song)
+            move_to_front(chat_id, pos - 1)
+            try:
+                await call_py.leave_call(chat_id)
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+        else:
+            add_to_queue(chat_id, song)
+
         await play_song(chat_id, pm, song)
         return
 
@@ -161,6 +179,7 @@ async def play_handler(_, message: Message) -> None:
     match = message.matches[0]
     query = (match.group("q") or "").strip()
     cmd = (match.group("cmd") or "play").strip()
+    force = cmd.lower() in ("playforce", "vplayforce")
 
     try:
         await message.delete()
@@ -224,7 +243,8 @@ async def play_handler(_, message: Message) -> None:
     await _process_play(
         message,
         query,
-        video=(cmd == "vplay"),
+        video=cmd.lower() in ("vplay", "vplayforce"),
+        force=force,
     )
 
 
@@ -233,6 +253,7 @@ async def _process_play(
     message: Message,
     query: str,
     video: bool = False,
+    force: bool = False,
 ) -> None:
 
     chat_id = message.chat.id
@@ -331,6 +352,11 @@ async def _process_play(
 
         first_was_empty = queue_size(chat_id) == 0
 
+        if force and not first_was_empty:
+            pop_current(chat_id)
+
+        queue_before = queue_size(chat_id)
+
         for item in items:
             add_to_queue(
                 chat_id,
@@ -374,7 +400,17 @@ async def _process_play(
             + rich_kv_table(rows),
         )
 
-        if first_was_empty:
+        if force and not first_was_empty:
+            move_to_front(chat_id, queue_before)
+            try:
+                await call_py.leave_call(chat_id)
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+            first_song = peek_current(chat_id)
+            if first_song:
+                await play_song(chat_id, pm, first_song)
+        elif first_was_empty:
             first_song = peek_current(chat_id)
 
             if first_song:
@@ -451,6 +487,18 @@ async def _process_play(
         "video": video,
     }
 
+    if force and queue_size(chat_id):
+        pop_current(chat_id)
+        pos = add_to_queue(chat_id, song)
+        move_to_front(chat_id, pos - 1)
+        try:
+            await call_py.leave_call(chat_id)
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+        await play_song(chat_id, pm, song)
+        return
+
     pos = add_to_queue(
         chat_id,
         song,
@@ -464,29 +512,33 @@ async def _process_play(
         )
 
     else:
-        kb = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "▶ ᴘʟᴀʏ ɴᴏᴡ",
-                        callback_data=f"playnow:{pos - 1}",
-                    ),
-                ]
-            ]
-        )
+        try:
+            group_name = rich_esc(message.chat.title or "this group")
+        except Exception:
+            group_name = "this group"
 
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("≡ SKIP ≡", callback_data="skip"),
+                InlineKeyboardButton("≡ CLEAR ≡", callback_data="clear"),
+            ],
+            [InlineKeyboardButton("Close", callback_data="close_player")],
+        ])
+
+        queue_position = pos - 1
         await rich_send(
             bot,
             chat_id,
             rich_heading(
-                "❍ ᴀᴅᴅᴇᴅ ᴛᴏ ǫᴜᴇᴜᴇ",
+                "Yor × Music 🎧",
                 level=3,
             )
             + rich_note(
-                f"<p>ᴛɪᴛʟᴇ — {rich_esc(short(title))}<br>"
-                f"ᴅᴜʀ — {iso_to_human(dur_iso)}<br>"
-                f"ʙʏ — {rich_esc(req)}<br>"
-                f"ᴘᴏs — #{pos - 1}</p>"
+                f"<p>○ <b>ADDED TO QUEUE</b></p>"
+                f"<p>▎ <b>TITLE</b> — {rich_esc(short(title))}<br>"
+                f"DUR — {iso_to_human(dur_iso)}<br>"
+                f"BY — {rich_esc(req)}<br>"
+                f"POS — #{queue_position}</p>"
             ),
             reply_markup=kb,
         )
