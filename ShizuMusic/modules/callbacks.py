@@ -462,45 +462,52 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
         except Exception:
             pass
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
 
         try:
-            delete_file(
-                skipped.get(
-                    "file_path",
-                    "",
-                )
-            )
+            delete_file(skipped.get("file_path", ""))
         except Exception:
             pass
+
+        nxt = peek_current(chat_id)
+        group_name = rich_esc(cbq.message.chat.title or "this group")
+        user_display = user.mention if user else "Unknown"
+
+        if nxt:
+            text = (
+                rich_heading("Yor × Music 🎧", level=3)
+                + rich_note(
+                    f"<p>⏭️ <b>STREAM SKIPPED BY</b> {user_display}</p>"
+                )
+            )
+        else:
+            text = (
+                rich_heading("Yor × Music 🎧", level=3)
+                + rich_note(
+                    f"<p>⏭️ <b>STREAM SKIPPED BY</b> {user_display}</p>"
+                    f"<p>⊙ <b>No more queued tracks in {group_name}, leaving videochat.</b></p>"
+                )
+            )
+
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Close", callback_data="close_player")],
+        ])
 
         await rich_send(
             bot,
             chat_id,
-            f"<p>⏭️ <b>Stream skipped by</b> "
-            f"{user.mention}</p>",
+            text,
+            reply_markup=kb,
         )
-
-        nxt = peek_current(chat_id)
 
         if nxt:
             await cbq.answer("ᴘʟᴀʏɪɴɢ ɴᴇxᴛ")
-
             dm = await rich_send(
                 bot,
                 chat_id,
-                rich_heading(
-                    "⏭ ɴᴇxᴛ ᴛʀᴀᴄᴋ",
-                    level=3,
-                ),
+                rich_heading("⏭ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3),
             )
-
-            await play_song(
-                chat_id,
-                dm,
-                nxt,
-            )
-
+            await play_song(chat_id, dm, nxt)
         else:
             await cbq.answer("sᴋɪᴘᴘᴇᴅ")
 
