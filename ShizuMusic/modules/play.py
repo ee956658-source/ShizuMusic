@@ -7,188 +7,540 @@
 # --------------------------------------------------------------------------------
 
 import asyncio
+import re
+import time
 
-from pytgcalls import filters as fl
-from ntgcalls import TelegramServerError
-from pytgcalls.exceptions import NoActiveGroupCall
-from pytgcalls.types import (
-    ChatUpdate,
-    StreamEnded,
+from pyrogram import filters
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
 )
 
-from ShizuMusic import LOGGER, bot, call_py
-from ShizuMusic.core.queue import clear_queue, peek_current, pop_current, queue_size
-from ShizuMusic.utils.helpers import delete_file
-from ShizuMusic.utils.rich_ui import rich_esc, rich_heading, rich_kv_table, rich_note, rich_send
+import config
+from ShizuMusic import bot, call_py
+from ShizuMusic.core.player import play_song
+from ShizuMusic.core.queue import (
+    add_to_queue,
+    move_to_front,
+    peek_current,
+    queue_size,
+    pop_current,
+    move_to_front,
+)
+from ShizuMusic.modules.block import group_allowed, user_allowed
+from ShizuMusic.utils.assistant import is_assistant_in, try_join_assistant
+from ShizuMusic.utils.db import add_served_chat, add_served_user
+from ShizuMusic.utils.formatters import fmt_time, iso_to_human, iso_to_sec, short
+from ShizuMusic.utils.rich_ui import (
+    rich_edit,
+    rich_esc,
+    rich_heading,
+    rich_kv_table,
+    rich_note,
+    rich_send,
+)
+from ShizuMusic.utils.youtube import search_yt
 
 
-async def leave_vc(chat_id: int) -> None:
-    """
-    Leave voice chat and clean queue + autoplay state.
-    """
+# ── Blocked words ──────────────────────────────────────────────────────────────
+BLOCKED_WORDS = [
+    "porn", "xxx", "xnxx", "xvideos",
+    "sex", "fuck", "lund",
+    "drug", "cocaine", "weed", "charas",
+]
 
-    # Stop autoplay when leaving VC
+
+# ── Per-chat state ─────────────────────────────────────────────────────────────
+_last_cmd: dict[int, float] = {}
+_pending: dict[int, tuple] = {}
+
+
+# ── DB helper ──────────────────────────────────────────────────────────────────
+def _db_track(chat_id: int, user_id: int) -> None:
     try:
-        from ShizuMusic.core.autoplay import stop_autoplay
-        stop_autoplay(chat_id)
+        add_served_chat(chat_id)
+        if user_id:
+            add_served_user(user_id)
     except Exception:
         pass
 
-    # Delete queued files
-    for song in clear_queue(chat_id):
+
+# ── Cooldown handler ───────────────────────────────────────────────────────────
+async def _run_pending(chat_id: int, delay: int) -> None:
+    await asyncio.sleep(delay)
+
+    if chat_id in _pending:
+        msg, reply = _pending.pop(chat_id)
+
         try:
-            delete_file(song.get("file_path", ""))
+            await reply.delete()
         except Exception:
             pass
 
-    try:
-        await call_py.leave_call(chat_id)
-
-    except NoActiveGroupCall:
-        pass
-
-    except TelegramServerError as e:
-        LOGGER.error(f"Leave VC TelegramServerError: {e}")
-
-    except Exception as e:
-        LOGGER.error(f"Leave VC Error: {e}")
+        await play_handler(bot, msg)
 
 
-@call_py.on_update(fl.chat_update(ChatUpdate.Status.CLOSED_VOICE_CHAT))
-async def on_voice_chat_closed(_: object, update: ChatUpdate) -> None:
-    """Clear playback state when the Telegram voice chat is closed."""
-    await leave_vc(update.chat_id)
+# ── /play & /vplay command ─────────────────────────────────────────────────────
+@bot.on_message(
+    filters.group
+    & filters.regex(r"^/(?P<cmd>v?play(?:force)?)(?:@\w+)?(?:\s+(?P<q>.+))?$")
+    & group_allowed
+    & user_allowed
+)
+async def play_handler(_, message: Message) -> None:
 
+    chat_id = message.chat.id
+    user_id = message.from_user.id if message.from_user else 0
+    raw_cmd = (message.command[0].lower() if getattr(message, "command", None) else "play")
+    force = raw_cmd in ("playforce", "vplayforce")
 
-@call_py.on_update(fl.stream_end())
-async def on_stream_end(_: object, update: StreamEnded) -> None:
-    """
-    Automatically play the next song when the current stream ends.
-    AutoPlay mode also refetches songs when queue becomes low.
-    """
+    _db_track(chat_id, user_id)
 
-    chat_id = update.chat_id
+    # ── Replied audio / video ──────────────────────────────────────────────────
+    if message.reply_to_message and (
+        message.reply_to_message.audio or message.reply_to_message.video
+    ):
+        pm = await rich_send(
+            bot,
+            chat_id,
+            rich_heading("❍ ᴘʀᴏᴄᴇssɪɴɢ ᴍᴇᴅɪᴀ...", level=3),
+        )
 
-    # Remove finished song
-    done = pop_current(chat_id)
+        orig = message.reply_to_message
+        fresh = await bot.get_messages(orig.chat.id, orig.id)
+        media = fresh.video or fresh.audio
 
-    if done:
-        await asyncio.sleep(1)
+        if fresh.audio and getattr(fresh.audio, "file_size", 0) > 100 * 1024 * 1024:
+            await rich_edit(
+                pm,
+                rich_heading("❍ ғɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ", level=3)
+                + rich_kv_table([("ᴍᴀx", "<code>100 MB</code>")]),
+            )
+            return
+
+        await rich_edit(
+            pm,
+            rich_heading("❍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴇᴅɪᴀ...", level=3),
+        )
 
         try:
-            delete_file(done.get("file_path", ""))
-
-        except Exception:
-            pass
-
-    # ── AutoPlay Refetch Check ────────────────────────────────────────────────
-    try:
-        from ShizuMusic.core.autoplay import is_autoplay, maybe_refetch
-
-        if is_autoplay(chat_id):
-
-            # Fetch more songs in background if queue is getting low
-            asyncio.create_task(
-                maybe_refetch(chat_id, "🔁 AutoPlay", 0)
-            )
-
-    except Exception as ap_err:
-        LOGGER.warning(f"[AutoPlay] Refetch Check Error: {ap_err}")
-
-    # ── Next Song ─────────────────────────────────────────────────────────────
-    # Wait a little so autoplay fetch can complete
-    await asyncio.sleep(2)
-
-    nxt = peek_current(chat_id)
-
-    # Play next song
-    if nxt:
-
-        from ShizuMusic.core.player import play_song
-
-        try:
-            msg = await rich_send(
-                bot, chat_id,
-                rich_heading("❍ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3)
-                + rich_kv_table([("ᴛɪᴛʟᴇ", f"<code>{rich_esc(nxt['title'])}</code>")]),
-            )
-
-            await play_song(chat_id, msg, nxt)
-
-        except (NoActiveGroupCall, TelegramServerError) as e:
-            LOGGER.error(f"Next Song VC Error: {e}")
-
+            fp = await bot.download_media(media)
         except Exception as e:
-            LOGGER.error(f"Next Song Error: {e}")
-
-            await rich_send(
-                bot, chat_id,
-                rich_heading("❍ ᴇʀʀᴏʀ", level=3)
+            await rich_edit(
+                pm,
+                rich_heading("❍ ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ", level=3)
                 + rich_note(f"<code>{rich_esc(e)}</code>"),
             )
+            return
 
-    else:
+        thumb = None
 
-        # Queue finished but autoplay may still fetch songs
         try:
-            from ShizuMusic.core.autoplay import (
-                is_autoplay,
-                _autoplay_fetching,
-            )
-
-            if is_autoplay(chat_id):
-
-                # Wait if background fetching is running (up to 20 seconds)
-                for _ in range(20):
-                    if _autoplay_fetching.get(chat_id):
-                        await asyncio.sleep(1)
-                    else:
-                        break
-
-                # Give one more second after fetching finishes
-                await asyncio.sleep(1)
-
-                nxt2 = peek_current(chat_id)
-
-                # Play fetched song
-                if nxt2:
-
-                    from ShizuMusic.core.player import play_song
-
-                    msg2 = await rich_send(
-                        bot, chat_id,
-                        rich_heading("❍ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3)
-                        + rich_kv_table([("ᴛɪᴛʟᴇ", f"<code>{rich_esc(nxt2['title'])}</code>")]),
-                    )
-
-                    await play_song(chat_id, msg2, nxt2)
-                    return
-
-                # If still nothing after waiting, try one more fetch
-                from ShizuMusic.core.autoplay import maybe_refetch
-                await maybe_refetch(chat_id, "🔁 AutoPlay", 0)
-                await asyncio.sleep(5)
-
-                nxt3 = peek_current(chat_id)
-                if nxt3:
-                    from ShizuMusic.core.player import play_song
-                    msg3 = await rich_send(
-                        bot, chat_id,
-                        rich_heading("❍ ɴᴇxᴛ ᴛʀᴀᴄᴋ", level=3)
-                        + rich_kv_table([("ᴛɪᴛʟᴇ", f"<code>{rich_esc(nxt3['title'])}</code>")]),
-                    )
-                    await play_song(chat_id, msg3, nxt3)
-                    return
-
+            thumbs = (fresh.video or fresh.audio).thumbs
+            if thumbs:
+                thumb = await bot.download_media(thumbs[0])
         except Exception:
             pass
 
-        # Queue completely finished
-        await leave_vc(chat_id)
+        song = {
+            "url": fp,
+            "title": getattr(media, "file_name", "Audio"),
+            "duration": fmt_time(media.duration or 0),
+            "duration_seconds": media.duration or 0,
+            "requester": (
+                message.from_user.first_name
+                if message.from_user
+                else "Unknown"
+            ),
+            "requester_id": user_id,
+            "thumbnail": thumb,
+        }
+
+        if force:
+            # Replace the currently playing track, while preserving the rest
+            # of the queue behind the forced track.
+            if queue_size(chat_id):
+                pop_current(chat_id)
+            pos = add_to_queue(chat_id, song)
+            move_to_front(chat_id, pos - 1)
+            try:
+                await call_py.leave_call(chat_id)
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+        else:
+            add_to_queue(chat_id, song)
+
+        await play_song(chat_id, pm, song)
+        return
+
+    # ── Text query ─────────────────────────────────────────────────────────────
+    match = message.matches[0]
+    query = (match.group("q") or "").strip()
+    cmd = (match.group("cmd") or "play").strip()
+    force = cmd.lower() in ("playforce", "vplayforce")
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    # ── Blocked words check ────────────────────────────────────────────────────
+    if any(x in query.lower() for x in BLOCKED_WORDS):
+        await rich_send(
+            bot,
+            chat_id,
+            rich_heading("❍ ᴛʜɪs sᴏɴɢ ɪs ʙʟᴏᴄᴋᴇᴅ", level=3),
+        )
+        return
+
+    # ── Cooldown check ─────────────────────────────────────────────────────────
+    now = time.time()
+
+    if chat_id in _last_cmd and (
+        now - _last_cmd[chat_id]
+    ) < config.COOLDOWN:
+
+        rem = int(
+            config.COOLDOWN
+            - (now - _last_cmd[chat_id])
+        )
+
+        if chat_id not in _pending:
+            rep = await rich_send(
+                bot,
+                chat_id,
+                rich_heading("❍ ᴄᴏᴏʟᴅᴏᴡɴ ᴀᴄᴛɪᴠᴇ", level=3)
+                + rich_kv_table(
+                    [("ᴘʀᴏᴄᴇssɪɴɢ ɪɴ", f"<code>{rem}s</code>")]
+                ),
+            )
+
+            _pending[chat_id] = (message, rep)
+            asyncio.create_task(
+                _run_pending(chat_id, rem)
+            )
+
+        return
+
+    _last_cmd[chat_id] = now
+
+    # ── /play without query ───────────────────────────────────────────────────
+    if not query:
+        await rich_send(
+            bot,
+            chat_id,
+            "<p>🎶 <b>ʜᴏᴡ ᴛᴏ ᴘʟᴀʏ ᴍᴜꜱɪᴄ</b></p>"
+            "<p>• /play song name — ᴘʟᴀʏ ᴀᴜᴅɪᴏ<br>"
+            "• /vplay song name — ᴘʟᴀʏ ᴠɪᴅᴇᴏ<br>"
+            "• ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ʏᴏᴜᴛᴜʙᴇ ʟɪɴᴋ, ᴀᴜᴅɪᴏ, ᴏʀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ /play</p>"
+            "<p>ᴇxᴀᴍᴘʟᴇ:<br>"
+            "/play pal pal afusic</p>",
+        )
+        return
+
+    await _process_play(
+        message,
+        query,
+        video=cmd.lower() in ("vplay", "vplayforce"),
+        force=force,
+    )
+
+
+# ── Process play ───────────────────────────────────────────────────────────────
+async def _process_play(
+    message: Message,
+    query: str,
+    video: bool = False,
+    force: bool = False,
+) -> None:
+
+    chat_id = message.chat.id
+
+    pm = await rich_send(
+        bot,
+        chat_id,
+        rich_heading("❍ ᴘʀᴏᴄᴇssɪɴɢ...", level=3),
+    )
+
+    # ── Assistant check ────────────────────────────────────────────────────────
+    status = await is_assistant_in(chat_id)
+
+    if status == "banned":
+        await rich_edit(
+            pm,
+            rich_heading("❍ ᴀssɪsᴛᴀɴᴛ ʙᴀɴɴᴇᴅ", level=3)
+            + rich_note(
+                "ᴘʟᴇᴀsᴇ ᴜɴʙᴀɴ ᴀssɪsᴛᴀɴᴛ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ"
+            ),
+        )
+        return
+
+    if not status:
+        await rich_edit(
+            pm,
+            rich_heading(
+                "❍ ᴀssɪsᴛᴀɴᴛ ɪs ᴊᴏɪɴɪɴɢ ᴛʜᴇ ɢʀᴏᴜᴘ...",
+                level=3,
+            ),
+        )
+
+        ok = await try_join_assistant(chat_id, pm)
+
+        if not ok:
+            return
+
+        await rich_edit(
+            pm,
+            rich_heading(
+                "❍ ᴀssɪsᴛᴀɴᴛ ʜᴀs ᴊᴏɪɴᴇᴅ ✓",
+                level=3,
+            )
+            + rich_note("ᴘʀᴏᴄᴇssɪɴɢ..."),
+        )
+
+    # ── Normalise short YouTube URL ────────────────────────────────────────────
+    if "youtu.be" in query:
+        m = re.search(
+            r"youtu\.be/([^?&]+)",
+            query,
+        )
+
+        if m:
+            query = (
+                "https://www.youtube.com/watch?v="
+                + m.group(1)
+            )
+
+    # ── Search YouTube ─────────────────────────────────────────────────────────
+    try:
+        result = await search_yt(query)
+
+    except Exception as e:
+        await rich_edit(
+            pm,
+            rich_heading("❍ sᴇᴀʀᴄʜ ғᴀɪʟᴇᴅ", level=3)
+            + rich_note(
+                f"<code>{rich_esc(e)}</code>"
+            ),
+        )
+        return
+
+    # ── Playlist ───────────────────────────────────────────────────────────────
+    if isinstance(result, dict) and "playlist" in result:
+        items = result["playlist"]
+
+        if not items:
+            await rich_edit(
+                pm,
+                rich_heading("❍ ᴘʟᴀʏʟɪsᴛ ᴇᴍᴘᴛʏ", level=3),
+            )
+            return
+
+        req = (
+            message.from_user.first_name
+            if message.from_user
+            else "Unknown"
+        )
+
+        req_id = (
+            message.from_user.id
+            if message.from_user
+            else 0
+        )
+
+        first_was_empty = queue_size(chat_id) == 0
+
+        if force and not first_was_empty:
+            pop_current(chat_id)
+
+        queue_before = queue_size(chat_id)
+
+        for item in items:
+            add_to_queue(
+                chat_id,
+                {
+                    "url": item["link"],
+                    "title": item["title"],
+                    "duration": iso_to_human(item["duration"]),
+                    "duration_seconds": iso_to_sec(item["duration"]),
+                    "requester": req,
+                    "requester_id": req_id,
+                    "thumbnail": item["thumbnail"],
+                },
+            )
+
+        rows = [
+            (
+                "sᴏɴɢs",
+                f"<code>{len(items)}</code>",
+            ),
+            (
+                "ғɪʀsᴛ",
+                f"<code>{rich_esc(short(items[0]['title']))}</code>",
+            ),
+        ]
+
+        if len(items) > 1:
+            rows.append(
+                (
+                    "ɴᴇxᴛ",
+                    f"<code>{rich_esc(short(items[1]['title']))}</code>",
+                )
+            )
 
         await rich_send(
-            bot, chat_id,
-            rich_heading("❍ ǫᴜᴇᴜᴇ ғɪɴɪsʜᴇᴅ", level=3)
-            + rich_note("ʟᴇғᴛ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ."),
+            bot,
+            chat_id,
+            rich_heading(
+                "❍ ᴘʟᴀʏʟɪsᴛ ᴀᴅᴅᴇᴅ",
+                level=3,
+            )
+            + rich_kv_table(rows),
         )
-        
+
+        if force and not first_was_empty:
+            move_to_front(chat_id, queue_before)
+            try:
+                await call_py.leave_call(chat_id)
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+            first_song = peek_current(chat_id)
+            if first_song:
+                await play_song(chat_id, pm, first_song)
+        elif first_was_empty:
+            first_song = peek_current(chat_id)
+
+            if first_song:
+                await play_song(
+                    chat_id,
+                    pm,
+                    first_song,
+                )
+        else:
+            try:
+                await pm.delete()
+            except Exception:
+                pass
+
+        return
+
+    # ── Single track ───────────────────────────────────────────────────────────
+    url, title, dur_iso, thumb = result
+
+    if not url:
+        await rich_edit(
+            pm,
+            rich_heading(
+                "❍ sᴏɴɢ ɴᴏᴛ ғᴏᴜɴᴅ",
+                level=3,
+            ),
+        )
+        return
+
+    secs = iso_to_sec(dur_iso)
+
+    if secs > config.MAX_DURATION_SECONDS:
+        await rich_edit(
+            pm,
+            rich_heading(
+                "❍ sᴏɴɢ ᴛᴏᴏ ʟᴏɴɢ",
+                level=3,
+            )
+            + rich_kv_table(
+                [
+                    (
+                        "ᴅᴜʀ",
+                        f"<code>{iso_to_human(dur_iso)}</code>",
+                    ),
+                    (
+                        "ᴍᴀx",
+                        f"<code>{config.MAX_DURATION_SECONDS // 60} min</code>",
+                    ),
+                ]
+            ),
+        )
+        return
+
+    req = (
+        message.from_user.first_name
+        if message.from_user
+        else "Unknown"
+    )
+
+    req_id = (
+        message.from_user.id
+        if message.from_user
+        else 0
+    )
+
+    song = {
+        "url": url,
+        "title": title,
+        "duration": iso_to_human(dur_iso),
+        "duration_seconds": secs,
+        "requester": req,
+        "requester_id": req_id,
+        "thumbnail": thumb,
+        "video": video,
+    }
+
+    if force and queue_size(chat_id):
+        pop_current(chat_id)
+        pos = add_to_queue(chat_id, song)
+        move_to_front(chat_id, pos - 1)
+        try:
+            await call_py.leave_call(chat_id)
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+        await play_song(chat_id, pm, song)
+        return
+
+    pos = add_to_queue(
+        chat_id,
+        song,
+    )
+
+    if pos == 1:
+        await play_song(
+            chat_id,
+            pm,
+            song,
+        )
+
+    else:
+        try:
+            group_name = rich_esc(message.chat.title or "this group")
+        except Exception:
+            group_name = "this group"
+
+        # Queue notification: keep the Close button, but match the compact
+        # plain-body layout used by the reference bot.
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Close", callback_data="close_player")],
+        ])
+
+        queue_position = pos - 1
+        await rich_send(
+            bot,
+            chat_id,
+            rich_heading(
+                "Yor × Music 🎧",
+                level=3,
+            )
+            + (
+                f"<p><b>Added To Queue At #{queue_position}</b></p>"
+                f"<p>✨ <b>Title</b> : {rich_esc(short(title))}<br>"
+                f"Duration : {iso_to_human(dur_iso)} minutes<br>"
+                f"Requested by : {rich_esc(req)}</p>"
+            ),
+            reply_markup=kb,
+        )
+
+        try:
+            await pm.delete()
+        except Exception:
+            pass
