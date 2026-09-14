@@ -64,7 +64,7 @@ from ShizuMusic.utils.rich_ui import (
 from ShizuMusic.utils.player_thumbnail import make_player_thumbnail
 
 from ShizuMusic.utils.youtube import (
-    resolve_stream,
+    resolve_direct_stream,
 )
 
 
@@ -285,7 +285,7 @@ async def play_song(
     # ─────────────────────────────────────────
 
     try:
-        media_path = await resolve_stream(url)
+        media_path = await resolve_direct_stream(url)
 
     except Exception as e:
 
