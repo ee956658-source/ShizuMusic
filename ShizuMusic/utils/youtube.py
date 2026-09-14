@@ -355,6 +355,18 @@ async def resolve_stream(url: str) -> str:
         except Exception:
             pass
 
+    # Fast path: resolve a playable YouTube audio URL without downloading the
+    # complete MP3. If Telegram/PyTgCalls cannot use it, the caller can retry
+    # through the download fallback below.
+    try:
+        direct_url = await resolve_direct_stream(url)
+        if direct_url and direct_url != url:
+            _file_cache[url] = direct_url
+            logger.info("[youtube] Fast direct stream selected")
+            return direct_url
+    except Exception as e:
+        logger.warning(f"[youtube] Direct stream unavailable: {e}")
+
     logger.info(f"[shruti] Downloading: {video_id}")
 
     downloaded = await download_song(url)
