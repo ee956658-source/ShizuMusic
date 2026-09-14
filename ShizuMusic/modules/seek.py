@@ -60,9 +60,13 @@ async def _seek_to(chat_id: int, target_sec: int, message: Message) -> None:
     target_sec = max(0, min(target_sec, total_sec - 1))
 
     pm = await rich_send(
-        bot, chat_id,
-        rich_heading("⏩ sᴇᴇᴋɪɴɢ...", level=3)
-        + rich_kv_table([("ᴛᴏ", f"<code>{fmt_time(target_sec)}</code>")]),
+        bot,
+        chat_id,
+        rich_heading("˹𝙔𝙤𝙧 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼", level=3)
+        + rich_note("⏩ sᴇᴇᴋɪɴɢ...")
+        + "<p><b>ᴛᴏ</b> : "
+        + f"<code>{fmt_time(target_sec)}</code>"
+        + "</p>",
     )
 
     try:
@@ -110,7 +114,7 @@ async def _seek_to(chat_id: int, target_sec: int, message: Message) -> None:
     # branded heading, quoted status, duration and requester, followed by one
     # full-width close button.
     content = (
-        rich_heading("『Tᴏᴅᴀʟ X Mᴜsɪᴄ』 [ NO ADS ]™", level=3)
+        rich_heading("˹𝙔𝙤𝙧 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼", level=3)
         + rich_note("» sᴛʀᴇᴀᴍ sᴜᴄᴄᴇssғᴜʟʟʏ sᴇᴇᴋᴇᴅ.")
         + "<p>"
         + f"<b>DURATION</b> : {rich_esc(fmt_time(target_sec))} MINUTES<br>"
