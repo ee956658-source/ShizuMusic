@@ -8,7 +8,6 @@
 
 """
 Utility commands:
-  /repo  — send source code link
   /id    — get IDs of message / user / chat / replied message
 """
 
@@ -29,62 +28,6 @@ from ShizuMusic.utils.rich_ui import (
     rich_note,
     rich_reply,
 )
-
-# ── Source repo URL ────────────────────────────────────────────────────────────
-SOURCE_URL = "https://github.com/Badmunda05/ShizuMusic/fork"
-
-
-# ── /repo ──────────────────────────────────────────────────────────────────────
-@bot.on_message(filters.command("repo") & user_allowed)
-async def repo_cmd(_, message: Message) -> None:
-
-    kb = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🍡 sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ 🍡",
-                    url=SOURCE_URL,
-                    style=enums.ButtonStyle.PRIMARY,
-                ),
-                InlineKeyboardButton(
-                    "🔱 ғᴏʀᴋ 🔱",
-                    url=SOURCE_URL,
-                    style=enums.ButtonStyle.PRIMARY,
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🍬 sᴜᴘᴘᴏʀᴛ 🍬",
-                    url=config.SUPPORT_GROUP,
-                    style=enums.ButtonStyle.SUCCESS,
-                ),
-                InlineKeyboardButton(
-                    "🍹 ᴜᴘᴅᴀᴛᴇs 🍹",
-                    url=config.UPDATES_CHANNEL,
-                    style=enums.ButtonStyle.SUCCESS,
-                ),
-            ],
-        ]
-    )
-
-    content = (
-        rich_heading("🍡 sʜɪᴢᴜᴍᴜsɪᴄ sᴏᴜʀᴄᴇ", level=3)
-        + "<p>❍ ᴏᴘᴇɴ sᴏᴜʀᴄᴇ ᴍᴜsɪᴄ ʙᴏᴛ, ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ <b>ʙᴀᴅ ᴍᴜɴᴅᴀ</b> ❤️</p>"
-        + rich_details(
-            "⚡ ʜᴏsᴛɪɴɢ sᴜᴘᴘᴏʀᴛ",
-            rich_kv_table([
-                ("ғʀᴇᴇ", "ʀᴇɴᴅᴇʀ ✅ · ᴋᴏʏᴇʙ ✅ · ʀᴀɪʟᴡᴀʏ ✅"),
-                ("ᴘʀᴇᴍɪᴜᴍ", "ʜᴇʀᴏᴋᴜ 💎 · ᴠᴘs 🚀 (24x7 sᴍᴏᴏᴛʜ ʜᴏsᴛ)"),
-            ]),
-            open=True,
-        )
-        + rich_note(
-            f"❍ <a href='{SOURCE_URL}'>ɢɪᴛʜᴜʙ ʀᴇᴘᴏ</a> — ғᴇᴇʟ ғʀᴇᴇ ᴛᴏ ʜɪᴛ ⭐ ᴏɴ ɢɪᴛʜᴜʙ!"
-        )
-    )
-
-    await rich_reply(message, content, reply_markup=kb)
-
 
 # ── /id ────────────────────────────────────────────────────────────────────────
 
