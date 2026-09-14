@@ -60,9 +60,13 @@ async def _seek_to(chat_id: int, target_sec: int, message: Message) -> None:
     target_sec = max(0, min(target_sec, total_sec - 1))
 
     pm = await rich_send(
-        bot, chat_id,
-        rich_heading("⏩ sᴇᴇᴋɪɴɢ...", level=3)
-        + rich_kv_table([("ᴛᴏ", f"<code>{fmt_time(target_sec)}</code>")]),
+        bot,
+        chat_id,
+        rich_heading("˹𝙔𝙤𝙧 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼", level=3)
+        + rich_note("⏩ sᴇᴇᴋɪɴɢ...")
+        + "<p><b>ᴛᴏ</b> : "
+        + f"<code>{fmt_time(target_sec)}</code>"
+        + "</p>",
     )
 
     try:
@@ -110,7 +114,7 @@ async def _seek_to(chat_id: int, target_sec: int, message: Message) -> None:
     # branded heading, quoted status, duration and requester, followed by one
     # full-width close button.
     content = (
-        rich_heading("『Tᴏᴅᴀʟ X Mᴜsɪᴄ』 [ NO ADS ]™", level=3)
+        rich_heading("˹𝙔𝙤𝙧 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼", level=3)
         + rich_note("» sᴛʀᴇᴀᴍ sᴜᴄᴄᴇssғᴜʟʟʏ sᴇᴇᴋᴇᴅ.")
         + "<p>"
         + f"<b>DURATION</b> : {rich_esc(fmt_time(target_sec))} MINUTES<br>"
@@ -226,25 +230,16 @@ async def seek_usage(_, message: Message) -> None:
     chat_id = message.chat.id
     song    = peek_current(chat_id)
 
-    usage_rows = [
-        ("/seek 30", "ғᴏʀᴡᴀʀᴅ 30 sᴇᴄᴏɴᴅs"),
-        ("/seekback 30", "ʙᴀᴄᴋᴡᴀʀᴅ 30 sᴇᴄᴏɴᴅs"),
-    ]
+    # Keep the no-argument help response simple. Do not render the
+    # command instructions as a table.
+    content = (
+        rich_heading("˹𝙔𝙤𝙧 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼", level=3)
+        + rich_note("❍ sᴇᴇᴋ ᴜsᴀɢᴇ")
+        + "<p>"
+        + "<b>ғᴏʀᴡᴀʀᴅ:</b> <code>/seek 30</code><br>"
+        + "<b>ʙᴀᴄᴋᴡᴀʀᴅ:</b> <code>/seekback 30</code>"
+        + "</p>"
+    )
 
-    if song:
-        pos       = get_current_position(chat_id)
-        total_sec = parse_dur(song.get("duration", "0:00"))
-        await rich_send(
-            bot, chat_id,
-            rich_heading("❍ sᴇᴇᴋ ᴜsᴀɢᴇ", level=3)
-            + rich_kv_table([("ᴄᴜʀʀᴇɴᴛ ᴘᴏsɪᴛɪᴏɴ",
-                              f"<code>{fmt_time(pos)}</code> / <code>{fmt_time(total_sec)}</code>")])
-            + rich_kv_table(usage_rows, headers=["ᴄᴏᴍᴍᴀɴᴅ", "ᴅᴇsᴄʀɪᴘᴛɪᴏɴ"]),
-        )
-    else:
-        await rich_send(
-            bot, chat_id,
-            rich_heading("❍ sᴇᴇᴋ ᴜsᴀɢᴇ", level=3)
-            + rich_kv_table(usage_rows, headers=["ᴄᴏᴍᴍᴀɴᴅ", "ᴅᴇsᴄʀɪᴘᴛɪᴏɴ"]),
-        )
+    await rich_send(bot, chat_id, content)
 
