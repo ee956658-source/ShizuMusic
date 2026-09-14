@@ -64,7 +64,7 @@ from ShizuMusic.utils.rich_ui import (
 from ShizuMusic.utils.player_thumbnail import make_player_thumbnail
 
 from ShizuMusic.utils.youtube import (
-    resolve_direct_stream,
+    resolve_stream,
 )
 
 
@@ -186,7 +186,7 @@ async def _ensure_vc(chat_id: int) -> bool:
         )
 
         LOGGER.info(f"[VC] Created in {chat_id}")
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)
         return True
 
     except TelegramServerError as e:
@@ -285,7 +285,7 @@ async def play_song(
     # ─────────────────────────────────────────
 
     try:
-        media_path = await resolve_direct_stream(url)
+        media_path = await resolve_stream(url)
 
     except Exception as e:
 
