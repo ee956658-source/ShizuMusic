@@ -22,36 +22,58 @@ from ShizuMusic.utils.helpers import delete_file
 from ShizuMusic.utils.rich_ui import rich_esc, rich_heading, rich_kv_table, rich_note, rich_send
 
 
+# Chats currently being cleaned up. This prevents a leave_call-triggered
+# update from running the cleanup twice.
+_resetting_chats: set[int] = set()
+
+
 async def leave_vc(chat_id: int) -> None:
-    """
-    Leave voice chat and clean queue + autoplay state.
-    """
+    """Leave voice chat and clean all playback state for this chat."""
 
-    # Stop autoplay when leaving VC
+    chat_id = int(chat_id)
+
+    if chat_id in _resetting_chats:
+        return
+
+    _resetting_chats.add(chat_id)
     try:
-        from ShizuMusic.core.autoplay import stop_autoplay
-        stop_autoplay(chat_id)
-    except Exception:
-        pass
-
-    # Delete queued files
-    for song in clear_queue(chat_id):
+        # Stop autoplay when leaving VC.
         try:
-            delete_file(song.get("file_path", ""))
+            from ShizuMusic.core.autoplay import stop_autoplay
+            stop_autoplay(chat_id)
         except Exception:
             pass
 
-    try:
-        await call_py.leave_call(chat_id)
+        # Delete every queued file, including the currently playing track.
+        for song in clear_queue(chat_id):
+            try:
+                delete_file(song.get("file_path") or song.get("url", ""))
+            except Exception:
+                pass
 
-    except NoActiveGroupCall:
-        pass
+        try:
+            await call_py.leave_call(chat_id)
+        except NoActiveGroupCall:
+            pass
+        except TelegramServerError as e:
+            LOGGER.error(f"Leave VC TelegramServerError: {e}")
+        except Exception as e:
+            LOGGER.error(f"Leave VC Error: {e}")
+    finally:
+        _resetting_chats.discard(chat_id)
 
-    except TelegramServerError as e:
-        LOGGER.error(f"Leave VC TelegramServerError: {e}")
 
-    except Exception as e:
-        LOGGER.error(f"Leave VC Error: {e}")
+@call_py.on_update(fl.chat_update())
+async def on_chat_update(_: object, update: ChatUpdate) -> None:
+    """Clear stale playback state when the group voice chat is closed."""
+
+    chat_id = int(update.chat_id)
+    status = str(getattr(update, "status", "")).lower()
+
+    # Do not interfere with ordinary connected/active updates. The statuses
+    # below represent the call being closed, left, or otherwise unavailable.
+    if any(value in status for value in ("closed", "left", "kicked", "discarded", "disconnected")):
+        await leave_vc(chat_id)
 
 
 @call_py.on_update(fl.stream_end())
@@ -62,6 +84,10 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
     """
 
     chat_id = update.chat_id
+
+    # A VC-close cleanup invalidates the queue; never advance an old queue.
+    if int(chat_id) in _resetting_chats:
+        return
 
     # Remove finished song
     done = pop_current(chat_id)
