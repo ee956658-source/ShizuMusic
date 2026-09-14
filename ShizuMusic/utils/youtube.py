@@ -30,7 +30,7 @@ SHRUTI_API_URL = os.environ.get(
 )
 SHRUTI_API_KEY = os.environ.get(
     "SHRUTI_API_KEY",
-    "https://api01.shrutibots.site",
+    "ShrutiBots88hgntDhLBAxmui2bE72",
 )
 
 DOWNLOAD_DIR = "downloads"
@@ -372,6 +372,41 @@ async def resolve_stream(url: str) -> str:
     raise Exception(
         "Shruti API download failed. Please try again."
     )
+
+
+async def resolve_direct_stream(url: str) -> str:
+    """Get a temporary YouTube audio URL quickly; fall back to local download."""
+    if os.path.exists(url) and os.path.isfile(url):
+        return url
+
+    try:
+        def _extract():
+            options = {
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+                "format": "bestaudio/best",
+                "skip_download": True,
+                "source_address": "0.0.0.0",
+            }
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return info.get("url")
+
+        direct_url = await asyncio.to_thread(_extract)
+        if direct_url:
+            logger.info("[youtube] Direct audio stream resolved")
+            return direct_url
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.warning(f"[youtube] Direct stream failed, using download fallback: {e}")
+
+    downloaded = await download_song(url)
+    if downloaded:
+        return downloaded
+
+    raise Exception("YouTube stream and download fallback both failed. Please try again.")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
