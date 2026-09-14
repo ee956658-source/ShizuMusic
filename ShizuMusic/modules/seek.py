@@ -106,28 +106,19 @@ async def _seek_to(chat_id: int, target_sec: int, message: Message) -> None:
 
     set_seek_state(chat_id, target_sec)
 
-    # True rich card — same pattern as the now-playing message in player.py
-    # (embedded thumbnail via rich_img, real heading + table), not a caption.
+    # Seek confirmation card. Keep the same compact rich-message layout:
+    # branded heading, quoted status, duration and requester, followed by one
+    # full-width close button.
     content = (
-        rich_heading("🎧 sʜɪᴢᴜ ᴍᴜsɪᴄ — ɴᴏᴡ ᴘʟᴀʏɪɴɢ", level=3)
-        + (rich_img(song["thumbnail"]) if song.get("thumbnail") else "")
-        + rich_kv_table([
-            ("ᴛɪᴛʟᴇ", rich_esc(short(song["title"]))),
-            ("ᴅᴜʀᴀᴛɪᴏɴ", rich_esc(song.get("duration", "?"))),
-            ("ʙʏ", rich_esc(song["requester"])),
-            ("sᴇᴇᴋᴇᴅ ᴛᴏ", f"<code>{fmt_time(target_sec)}</code>"),
-        ])
+        rich_heading("『Tᴏᴅᴀʟ X Mᴜsɪᴄ』 [ NO ADS ]™", level=3)
+        + rich_note("» sᴛʀᴇᴀᴍ sᴜᴄᴄᴇssғᴜʟʟʏ sᴇᴇᴋᴇᴅ.")
+        + "<p>"
+        + f"<b>DURATION</b> : {rich_esc(fmt_time(target_sec))} MINUTES<br>"
+        + f"<b>BY</b> : {rich_esc(song['requester'])}"
+        + "</p>"
     )
-    btns = [
-        InlineKeyboardButton("▷",   callback_data="resume"),
-        InlineKeyboardButton("II",  callback_data="pause"),
-        InlineKeyboardButton("‣‣I", callback_data="skip"),
-        InlineKeyboardButton("▢",   callback_data="stop"),
-    ]
-    bar = progress_bar(target_sec, total_sec)
-    kb  = InlineKeyboardMarkup([
-        [InlineKeyboardButton(bar, callback_data="noop")],
-        btns,
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✦ CLOSE ✦", callback_data="close_player")],
     ])
     try:
         await pm.delete()
