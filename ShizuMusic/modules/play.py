@@ -26,9 +26,12 @@ from ShizuMusic.core.queue import (
     peek_current,
     queue_size,
     pop_current,
+    clear_queue,
     move_to_front,
 )
 from ShizuMusic.modules.block import group_allowed, user_allowed
+from ShizuMusic.modules.vc import get_active_group_call
+from ShizuMusic.utils.helpers import delete_file
 from ShizuMusic.utils.assistant import is_assistant_in, try_join_assistant
 from ShizuMusic.utils.db import add_served_chat, add_served_user
 from ShizuMusic.utils.formatters import fmt_time, iso_to_human, iso_to_sec, short
@@ -57,6 +60,29 @@ _pending: dict[int, tuple] = {}
 
 
 # ── DB helper ──────────────────────────────────────────────────────────────────
+async def _clear_stale_queue(chat_id: int) -> None:
+    """Clear an old in-memory queue when Telegram VC no longer exists."""
+    if not queue_size(chat_id):
+        return
+
+    try:
+        active_call = await get_active_group_call(chat_id)
+    except Exception:
+        return
+
+    if active_call is not None:
+        return
+
+    old_queue = clear_queue(chat_id)
+    for old_song in old_queue:
+        try:
+            file_path = old_song.get("url") or old_song.get("file_path")
+            if file_path:
+                delete_file(file_path)
+        except Exception:
+            pass
+
+
 def _db_track(chat_id: int, user_id: int) -> None:
     try:
         add_served_chat(chat_id)
@@ -106,6 +132,8 @@ async def play_handler(_, message: Message) -> None:
             chat_id,
             rich_heading("❍ ᴘʀᴏᴄᴇssɪɴɢ ᴍᴇᴅɪᴀ...", level=3),
         )
+
+        await _clear_stale_queue(chat_id)
 
         orig = message.reply_to_message
         fresh = await bot.get_messages(orig.chat.id, orig.id)
@@ -263,6 +291,8 @@ async def _process_play(
         chat_id,
         rich_heading("❍ ᴘʀᴏᴄᴇssɪɴɢ...", level=3),
     )
+
+    await _clear_stale_queue(chat_id)
 
     # ── Assistant check ────────────────────────────────────────────────────────
     status = await is_assistant_in(chat_id)
