@@ -8,6 +8,7 @@
 
 ALL_MODULES = [
     "autoplay",
+    "loop",
     "afk",
     "all",
     "ban",
