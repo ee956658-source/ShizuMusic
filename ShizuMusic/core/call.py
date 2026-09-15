@@ -36,7 +36,7 @@ async def leave_vc(chat_id: int) -> None:
 
     # Clear loop state
     try:
-        from ShizuMusic.modules.loop import clear_loop
+        from ShizuMusic.core.loop_state import clear_loop
         clear_loop(chat_id)
     except Exception:
         pass
@@ -79,7 +79,7 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
 
     # ── Loop: replay current track if enabled ────────────────────────────────
     try:
-        from ShizuMusic.modules.loop import consume_loop, is_looping
+        from ShizuMusic.core.loop_state import consume_loop, is_looping
 
         if is_looping(chat_id) and consume_loop(chat_id):
             current = peek_current(chat_id)
