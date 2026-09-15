@@ -69,12 +69,8 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
 
     chat_id = update.chat_id
 
-    # Repeat the current song when loop is enabled
-    from ShizuMusic.core.loop import is_loop
-    looping = is_loop(chat_id)
-
-    # Remove finished song only when loop is disabled
-    done = None if looping else pop_current(chat_id)
+    # Remove finished song
+    done = pop_current(chat_id)
 
     if done:
         await asyncio.sleep(1)
@@ -84,25 +80,6 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
 
         except Exception:
             pass
-
-    # ── Loop playback ─────────────────────────────────────────────────────────
-    if looping:
-        current = peek_current(chat_id)
-        if current:
-            from ShizuMusic.core.player import play_song
-            try:
-                # Keep the current queue item in place. Create a real Telegram
-                # message for play_song to edit; rich_send can return no usable
-                # message in some configurations, which previously stopped the
-                # replay before playback even started.
-                msg = await bot.send_message(
-                    chat_id,
-                    "🔁 Loop replaying the current song...",
-                )
-                await play_song(chat_id, msg, dict(current))
-            except Exception as e:
-                LOGGER.error(f"Loop replay error in chat {chat_id}: {e}")
-            return
 
     # ── AutoPlay Refetch Check ────────────────────────────────────────────────
     try:
