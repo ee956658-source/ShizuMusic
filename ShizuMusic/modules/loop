@@ -1,22 +1,61 @@
+# --------------------------------------------------------------------------------
+#  ShizuMusic © 2026
+#  Loop command
+# --------------------------------------------------------------------------------
+
 from pyrogram import filters
 from pyrogram.types import Message
+
 from ShizuMusic import bot
 from ShizuMusic.core.loop import is_loop, set_loop
 from ShizuMusic.modules.block import group_allowed, user_allowed
 from ShizuMusic.utils.permissions import is_user_authorized
-from ShizuMusic.utils.rich_ui import rich_heading, rich_note, rich_send
 
-@bot.on_message(filters.group & filters.command("loop") & group_allowed & user_allowed)
+
+@bot.on_message(
+    filters.group
+    & filters.command("loop", prefixes=["/"])
+    & group_allowed
+    & user_allowed
+)
 async def loop_cmd(_, message: Message) -> None:
-    chat_id = message.chat.id
+    """Enable or disable repeating of the currently playing song."""
+    chat_id = int(message.chat.id)
+
+    # Loop control is restricted to group admins/owner, like other playback controls.
     if not await is_user_authorized(message):
-        await rich_send(bot, chat_id, rich_heading("⛔ ᴀᴅᴍɪɴ ᴏɴʟʏ", level=3))
+        await bot.send_message(
+            chat_id,
+            "⛔ Only group admins can use the loop command.",
+            reply_to_message_id=message.id,
+        )
         return
-    args = message.command[1:] if len(message.command) > 1 else []
-    if not args or args[0].lower() not in ("enable", "disable"):
-        status = "enabled" if is_loop(chat_id) else "disabled"
-        await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ᴜsᴀɢᴇ", level=3) + rich_note(f"ᴄᴜʀʀᴇɴᴛ sᴛᴀᴛᴜs: <b>{status}</b><br>ᴜsᴇ <code>/loop enable</code> ᴏʀ <code>/loop disable</code>"))
+
+    args = message.command[1:] if message.command else []
+    action = args[0].lower() if args else ""
+
+    if action not in ("enable", "disable"):
+        status = "ON" if is_loop(chat_id) else "OFF"
+        await bot.send_message(
+            chat_id,
+            "🔁 Loop usage:\n"
+            "• /loop enable — repeat the current song\n"
+            "• /loop disable — turn loop off\n"
+            f"\nCurrent status: {status}",
+            reply_to_message_id=message.id,
+        )
         return
-    enabled = args[0].lower() == "enable"
+
+    enabled = action == "enable"
     set_loop(chat_id, enabled)
-    await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ᴇɴᴀʙʟᴇᴅ" if enabled else "⏹ ʟᴏᴏᴘ ᴅɪsᴀʙʟᴇᴅ", level=3))
+
+    if enabled:
+        text = "🔁 Loop enabled. The current song will repeat after it ends."
+    else:
+        text = "⏹ Loop disabled. The next song will play normally."
+
+    await bot.send_message(
+        chat_id,
+        text,
+        reply_to_message_id=message.id,
+    )
