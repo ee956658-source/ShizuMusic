@@ -6,24 +6,28 @@
 import re
 
 from pyrogram import filters
+from pyrogram.handlers import MessageHandler
 from pyrogram.types import Message
 
 from ShizuMusic import bot
 from ShizuMusic.core.loop import is_loop, set_loop
 
 
-# Handle both /loop enable and /loop@BotUsername enable explicitly.
-# This handler intentionally has no unrelated group/user middleware so the
-# command cannot silently disappear before reaching the loop code.
-@bot.on_message(
-    filters.group
-    & filters.regex(r"^/loop(?:@[A-Za-z0-9_]+)?(?:\s+(?:enable|disable|on|off|1|0))?\s*$", flags=re.IGNORECASE)
+_LOOP_RE = re.compile(
+    r"^/loop(?:@[A-Za-z0-9_]+)?(?:\s+(enable|disable|on|off|1|0))?\s*$",
+    re.IGNORECASE,
 )
+
+
 async def loop_cmd(_, message: Message) -> None:
-    chat_id = int(message.chat.id)
+    """Enable/disable repeating of the current song."""
     text = (message.text or message.caption or "").strip()
-    parts = text.split()
-    action = parts[1].lower() if len(parts) > 1 else ""
+    match = _LOOP_RE.fullmatch(text)
+    if not match or not message.chat:
+        return
+
+    chat_id = int(message.chat.id)
+    action = (match.group(1) or "").lower()
 
     if action in ("enable", "on", "1"):
         set_loop(chat_id, True)
@@ -41,11 +45,19 @@ async def loop_cmd(_, message: Message) -> None:
         )
 
     try:
-        await bot.send_message(
-            chat_id,
-            reply,
-            reply_to_message_id=message.id,
-        )
-    except Exception:
-        # Fallback for clients/configurations where replying is unavailable.
         await message.reply_text(reply)
+    except Exception as e:
+        # Keep failures visible in the bot log instead of silently swallowing them.
+        from ShizuMusic import LOGGER
+        LOGGER.error(f"Loop command reply error in chat {chat_id}: {e}")
+
+
+# Register a normal text handler and parse the command ourselves. This avoids
+# Pyrogram command-filter/entity differences for /loop and /loop@BotUsername.
+bot.add_handler(
+    MessageHandler(
+        loop_cmd,
+        filters=filters.group & filters.text,
+    ),
+    group=0,
+)
