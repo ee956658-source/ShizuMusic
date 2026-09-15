@@ -30,4 +30,5 @@ ALL_MODULES = [
     "pin",
     "vc",
     "moderation",
+    "loop",
 ]
