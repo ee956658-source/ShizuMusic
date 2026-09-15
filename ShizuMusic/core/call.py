@@ -69,8 +69,12 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
 
     chat_id = update.chat_id
 
-    # Remove finished song
-    done = pop_current(chat_id)
+    # Repeat the current song when loop is enabled
+    from ShizuMusic.core.loop import is_loop
+    looping = is_loop(chat_id)
+
+    # Remove finished song only when loop is disabled
+    done = None if looping else pop_current(chat_id)
 
     if done:
         await asyncio.sleep(1)
@@ -80,6 +84,18 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
 
         except Exception:
             pass
+
+    # ── Loop playback ─────────────────────────────────────────────────────────
+    if looping:
+        current = peek_current(chat_id)
+        if current:
+            from ShizuMusic.core.player import play_song
+            try:
+                msg = await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ʀᴇᴘʟᴀʏ", level=3))
+                await play_song(chat_id, msg, current)
+            except Exception as e:
+                LOGGER.error(f"Loop replay error: {e}")
+            return
 
     # ── AutoPlay Refetch Check ────────────────────────────────────────────────
     try:
