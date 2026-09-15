@@ -457,7 +457,7 @@ async def on_callback(client, cbq: CallbackQuery) -> None:
 
         # Disable loop when skipping so the next track is not forced into loop
         try:
-            from ShizuMusic.modules.loop import clear_loop
+            from ShizuMusic.core.loop_state import clear_loop
             clear_loop(chat_id)
         except Exception:
             pass
