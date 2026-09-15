@@ -159,7 +159,7 @@ if __name__ == "__main__":
             BotCommand("skip",   "✧ sᴋɪᴘ sᴏɴɢ ✧"),
             BotCommand("stop",   "✧ sᴛᴏᴘ & ᴄʟᴇᴀʀ ✧"),
             BotCommand("ping",   "✧ ʙᴏᴛ sᴛᴀᴛs ✧"),
-            BotCommand("repo",   "✧ sᴏᴜʀᴄᴇ ᴍᴜsɪᴄ ʙᴏᴛ ✧"),
+            BotCommand("loop",   "✧ ʀᴇᴘᴇᴀᴛ ᴄᴜʀʀᴇɴᴛ sᴏɴɢ ✧"),
         ])
         LOGGER.info("Bot commands set")
     except Exception as e:
