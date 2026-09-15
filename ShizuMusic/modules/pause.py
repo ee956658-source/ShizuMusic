@@ -51,6 +51,7 @@ async def pause_cmd(_, message: Message) -> None:
 
 # ── /loop ─────────────────────────────────────────────────────────────────────
 
+from pyrogram.enums import ParseMode
 from ShizuMusic.core.loop_state import clear_loop, get_loop, set_loop
 from ShizuMusic.core.queue import peek_current, queue_size
 
@@ -64,105 +65,63 @@ from ShizuMusic.core.queue import peek_current, queue_size
 async def loop_cmd(_, message: Message) -> None:
 
     chat_id = message.chat.id
+    user = message.from_user
+    by = user.mention if user else "Unknown"
+
+    async def _small(text: str) -> None:
+        """Tidal/Olivia style — plain small message bubble, no rich card."""
+        try:
+            await message.reply_text(text, parse_mode=ParseMode.HTML)
+        except Exception:
+            try:
+                await bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
+            except Exception:
+                pass
 
     try:
         if not await is_user_authorized(message):
-            await rich_send(
-                bot, chat_id,
-                rich_heading("⛔ ᴀᴅᴍɪɴ ᴏɴʟʏ", level=3)
-                + rich_note("ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ғᴏʀ ɢʀᴏᴜᴘ ᴀᴅᴍɪɴs."),
-            )
+            await _small("⛔ <b>Admin only</b>")
             return
 
         if not queue_size(chat_id) or not peek_current(chat_id):
-            await rich_send(
-                bot, chat_id,
-                rich_heading("❍ ɴᴏ ᴛʀᴀᴄᴋ ᴘʟᴀʏɪɴɢ", level=3)
-                + rich_note("ʟᴏᴏᴘ ᴋᴇ ʟɪʏᴇ ᴋᴏɪ sᴏɴɢ ᴄʜᴀʟ ʀᴀʜᴀ ʜᴏɴᴀ ᴄʜᴀʜɪʏᴇ."),
-            )
+            await _small("❍ No track playing")
             return
 
         args = message.command[1:] if len(message.command) > 1 else []
         arg = args[0].lower().strip() if args else ""
-        current = peek_current(chat_id)
-        title = rich_esc(str(current.get("title", "Unknown")))
 
         if not arg:
             val = get_loop(chat_id)
             if val == 0:
-                status = "ᴅɪsᴀʙʟᴇᴅ"
+                await _small("🔁 Loop is <b>disabled</b>")
             elif val == -1:
-                status = "ᴇɴᴀʙʟᴇᴅ (ɪɴғɪɴɪᴛᴇ)"
+                await _small("🔁 Loop enabled (<b>infinite</b>)")
             else:
-                status = f"ᴇɴᴀʙʟᴇᴅ ({val} ʀᴇᴍᴀɪɴɪɴɢ)"
-            await rich_send(
-                bot, chat_id,
-                rich_heading("🔁 ʟᴏᴏᴘ sᴛᴀᴛᴜs", level=3)
-                + rich_note(
-                    f"<p>ᴛʀᴀᴄᴋ: <code>{title}</code><br>"
-                    f"sᴛᴀᴛᴜs: <b>{status}</b></p>"
-                    f"<p>/loop enable · /loop disable · /loop [1-10]</p>"
-                ),
-            )
+                await _small(f"🔁 Loop enabled (<b>{val}</b> times)")
             return
 
         if arg in ("enable", "on", "true", "yes"):
             set_loop(chat_id, -1)
-            await rich_send(
-                bot, chat_id,
-                rich_heading("🔁 ʟᴏᴏᴘ ᴇɴᴀʙʟᴇᴅ", level=3)
-                + rich_note(
-                    f"<p>sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ɪɴ ʟᴏᴏᴘ</p>"
-                    f"<p>ᴛʀᴀᴄᴋ: <code>{title}</code><br>"
-                    f"ᴍᴏᴅᴇ: <b>ɪɴғɪɴɪᴛᴇ</b></p>"
-                ),
-            )
+            await _small(f"» <b>LOOP ENABLED</b> for enable times by : {by}")
             return
 
         if arg in ("disable", "off", "false", "no"):
             clear_loop(chat_id)
-            await rich_send(
-                bot, chat_id,
-                rich_heading("🔁 ʟᴏᴏᴘ ᴅɪsᴀʙʟᴇᴅ", level=3)
-                + rich_note(
-                    f"<p>ʟᴏᴏᴘ ᴛᴜʀɴᴇᴅ ᴏғғ ғᴏʀ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ</p>"
-                    f"<p>ᴛʀᴀᴄᴋ: <code>{title}</code></p>"
-                ),
-            )
+            await _small(f"» <b>LOOP DISABLED</b> by : {by}")
             return
 
         if arg.isdigit():
             n = int(arg)
             if n < 1:
-                await rich_send(
-                    bot, chat_id,
-                    rich_heading("❍ ɪɴᴠᴀʟɪᴅ ᴠᴀʟᴜᴇ", level=3)
-                    + rich_note("ʟᴏᴏᴘ ᴄᴏᴜɴᴛ 1 sᴇ 10 ᴛᴀᴋ ʜᴏɴᴀ ᴄʜᴀʜɪʏᴇ."),
-                )
+                await _small("❍ Invalid (use 1–10)")
                 return
             if n > 10:
                 n = 10
             set_loop(chat_id, n)
-            await rich_send(
-                bot, chat_id,
-                rich_heading("🔁 ʟᴏᴏᴘ ᴇɴᴀʙʟᴇᴅ", level=3)
-                + rich_note(
-                    f"<p>sᴛᴀʀᴛs sᴛʀᴇᴀᴍɪɴɢ ᴛʜᴇ ᴏɴɢᴏɪɴɢ sᴛʀᴇᴀᴍ ɪɴ ʟᴏᴏᴘ</p>"
-                    f"<p>ᴛʀᴀᴄᴋ: <code>{title}</code><br>"
-                    f"ᴄᴏᴜɴᴛ: <b>{n}</b> ᴍᴏʀᴇ ᴛɪᴍᴇs</p>"
-                ),
-            )
+            await _small(f"» <b>LOOP ENABLED</b> for <b>{n}</b> times by : {by}")
             return
 
-        await rich_send(
-            bot, chat_id,
-            rich_heading("❍ ᴜsᴀɢᴇ", level=3)
-            + rich_note(
-                "<p>/loop enable — ɪɴғɪɴɪᴛᴇ ʟᴏᴏᴘ<br>"
-                "/loop disable — ᴛᴜʀɴ ᴏғғ<br>"
-                "/loop [1-10] — ʟᴏᴏᴘ ɴ ᴛɪᴍᴇs</p>"
-            ),
-        )
+        await _small("❍ /loop enable | disable | 1-10")
 
     except Exception as e:
         try:
