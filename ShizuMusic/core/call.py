@@ -91,15 +91,17 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
         if current:
             from ShizuMusic.core.player import play_song
             try:
-                # Keep the current queue item in place so it can be replayed.
-                msg = await rich_send(
-                    bot,
+                # Keep the current queue item in place. Create a real Telegram
+                # message for play_song to edit; rich_send can return no usable
+                # message in some configurations, which previously stopped the
+                # replay before playback even started.
+                msg = await bot.send_message(
                     chat_id,
-                    rich_heading("🔁 ʟᴏᴏᴘ ʀᴇᴘʟᴀʏ", level=3),
+                    "🔁 Loop replaying the current song...",
                 )
                 await play_song(chat_id, msg, dict(current))
             except Exception as e:
-                LOGGER.error(f"Loop replay error: {e}")
+                LOGGER.error(f"Loop replay error in chat {chat_id}: {e}")
             return
 
     # ── AutoPlay Refetch Check ────────────────────────────────────────────────
