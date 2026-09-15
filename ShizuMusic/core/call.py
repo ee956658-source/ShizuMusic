@@ -34,6 +34,13 @@ async def leave_vc(chat_id: int) -> None:
     except Exception:
         pass
 
+    # Clear loop state
+    try:
+        from ShizuMusic.modules.loop import clear_loop
+        clear_loop(chat_id)
+    except Exception:
+        pass
+
     # Delete queued files
     for song in clear_queue(chat_id):
         try:
@@ -64,10 +71,44 @@ async def on_voice_chat_closed(_: object, update: ChatUpdate) -> None:
 async def on_stream_end(_: object, update: StreamEnded) -> None:
     """
     Automatically play the next song when the current stream ends.
+    If loop is enabled for the chat, replay the same track instead.
     AutoPlay mode also refetches songs when queue becomes low.
     """
 
     chat_id = update.chat_id
+
+    # ── Loop: replay current track if enabled ────────────────────────────────
+    try:
+        from ShizuMusic.modules.loop import consume_loop, is_looping
+
+        if is_looping(chat_id) and consume_loop(chat_id):
+            current = peek_current(chat_id)
+            if current:
+                from ShizuMusic.core.player import play_song
+
+                await asyncio.sleep(1)
+                try:
+                    msg = await rich_send(
+                        bot,
+                        chat_id,
+                        rich_heading("🔁 ʟᴏᴏᴘ", level=3)
+                        + rich_kv_table(
+                            [
+                                (
+                                    "ᴛɪᴛʟᴇ",
+                                    f"<code>{rich_esc(current['title'])}</code>",
+                                )
+                            ]
+                        ),
+                    )
+                    await play_song(chat_id, msg, current)
+                except (NoActiveGroupCall, TelegramServerError) as e:
+                    LOGGER.error(f"Loop replay VC Error: {e}")
+                except Exception as e:
+                    LOGGER.error(f"Loop replay Error: {e}")
+                return
+    except Exception as loop_err:
+        LOGGER.warning(f"[Loop] Check Error: {loop_err}")
 
     # Remove finished song
     done = pop_current(chat_id)
@@ -191,4 +232,3 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
             rich_heading("❍ ǫᴜᴇᴜᴇ ғɪɴɪsʜᴇᴅ", level=3)
             + rich_note("ʟᴇғᴛ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ."),
         )
-        
