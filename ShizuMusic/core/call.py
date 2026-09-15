@@ -91,8 +91,13 @@ async def on_stream_end(_: object, update: StreamEnded) -> None:
         if current:
             from ShizuMusic.core.player import play_song
             try:
-                msg = await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ʀᴇᴘʟᴀʏ", level=3))
-                await play_song(chat_id, msg, current)
+                # Keep the current queue item in place so it can be replayed.
+                msg = await rich_send(
+                    bot,
+                    chat_id,
+                    rich_heading("🔁 ʟᴏᴏᴘ ʀᴇᴘʟᴀʏ", level=3),
+                )
+                await play_song(chat_id, msg, dict(current))
             except Exception as e:
                 LOGGER.error(f"Loop replay error: {e}")
             return
