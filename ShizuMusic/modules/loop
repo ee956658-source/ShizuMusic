@@ -1,0 +1,22 @@
+from pyrogram import filters
+from pyrogram.types import Message
+from ShizuMusic import bot
+from ShizuMusic.core.loop import is_loop, set_loop
+from ShizuMusic.modules.block import group_allowed, user_allowed
+from ShizuMusic.utils.permissions import is_user_authorized
+from ShizuMusic.utils.rich_ui import rich_heading, rich_note, rich_send
+
+@bot.on_message(filters.group & filters.command("loop") & group_allowed & user_allowed)
+async def loop_cmd(_, message: Message) -> None:
+    chat_id = message.chat.id
+    if not await is_user_authorized(message):
+        await rich_send(bot, chat_id, rich_heading("⛔ ᴀᴅᴍɪɴ ᴏɴʟʏ", level=3))
+        return
+    args = message.command[1:] if len(message.command) > 1 else []
+    if not args or args[0].lower() not in ("enable", "disable"):
+        status = "enabled" if is_loop(chat_id) else "disabled"
+        await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ᴜsᴀɢᴇ", level=3) + rich_note(f"ᴄᴜʀʀᴇɴᴛ sᴛᴀᴛᴜs: <b>{status}</b><br>ᴜsᴇ <code>/loop enable</code> ᴏʀ <code>/loop disable</code>"))
+        return
+    enabled = args[0].lower() == "enable"
+    set_loop(chat_id, enabled)
+    await rich_send(bot, chat_id, rich_heading("🔁 ʟᴏᴏᴘ ᴇɴᴀʙʟᴇᴅ" if enabled else "⏹ ʟᴏᴏᴘ ᴅɪsᴀʙʟᴇᴅ", level=3))
