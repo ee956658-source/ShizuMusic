@@ -387,24 +387,19 @@ async def resolve_stream(url: str) -> str:
 
 
 async def resolve_direct_stream(url: str) -> str:
-    """Get a temporary YouTube audio URL quickly; fall back to local download."""
+    """Resolve a direct YouTube audio URL without triggering duplicate downloads."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
-
     try:
         def _extract():
             options = {
-                "quiet": True,
-                "no_warnings": True,
-                "noplaylist": True,
-                "format": "bestaudio/best",
-                "skip_download": True,
-                "source_address": "0.0.0.0",
+                "quiet": True, "no_warnings": True, "noplaylist": True,
+                "format": "bestaudio/best", "skip_download": True,
+                "source_address": "0.0.0.0", "socket_timeout": 8,
+                "retries": 1, "fragment_retries": 1,
             }
             with yt_dlp.YoutubeDL(options) as ydl:
-                info = ydl.extract_info(url, download=False)
-                return info.get("url")
-
+                return ydl.extract_info(url, download=False).get("url")
         direct_url = await asyncio.to_thread(_extract)
         if direct_url:
             logger.info("[youtube] Direct audio stream resolved")
@@ -412,18 +407,9 @@ async def resolve_direct_stream(url: str) -> str:
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.warning(f"[youtube] Direct stream failed, using download fallback: {e}")
+        logger.warning(f"[youtube] Direct stream failed: {e}")
+    return ""
 
-    downloaded = await download_song(url)
-    if downloaded:
-        return downloaded
-
-    raise Exception("YouTube stream and download fallback both failed. Please try again.")
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# PUBLIC — YOUTUBE SEARCH / METADATA
-# ═════════════════════════════════════════════════════════════════════════════
 
 async def search_yt(query: str):
     """
