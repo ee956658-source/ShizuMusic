@@ -264,67 +264,51 @@ async def _process_play(
         rich_heading("❍ ᴘʀᴏᴄᴇssɪɴɢ...", level=3),
     )
 
-    # ── Assistant check ────────────────────────────────────────────────────────
-    status = await is_assistant_in(chat_id)
-
-    if status == "banned":
-        await rich_edit(
-            pm,
-            rich_heading("❍ ᴀssɪsᴛᴀɴᴛ ʙᴀɴɴᴇᴅ", level=3)
-            + rich_note(
-                "ᴘʟᴇᴀsᴇ ᴜɴʙᴀɴ ᴀssɪsᴛᴀɴᴛ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ"
-            ),
-        )
-        return
-
-    if not status:
-        await rich_edit(
-            pm,
-            rich_heading(
-                "❍ ᴀssɪsᴛᴀɴᴛ ɪs ᴊᴏɪɴɪɴɢ ᴛʜᴇ ɢʀᴏᴜᴘ...",
-                level=3,
-            ),
-        )
-
-        ok = await try_join_assistant(chat_id, pm)
-
-        if not ok:
-            return
-
-        await rich_edit(
-            pm,
-            rich_heading(
-                "❍ ᴀssɪsᴛᴀɴᴛ ʜᴀs ᴊᴏɪɴᴇᴅ ✓",
-                level=3,
-            )
-            + rich_note("ᴘʀᴏᴄᴇssɪɴɢ..."),
-        )
-
-    # ── Normalise short YouTube URL ────────────────────────────────────────────
+    # ── Normalise short YouTube URL first ─────────────────────────────────────
     if "youtu.be" in query:
         m = re.search(
             r"youtu\.be/([^?&]+)",
             query,
         )
-
         if m:
             query = (
                 "https://www.youtube.com/watch?v="
                 + m.group(1)
             )
 
-    # ── Search YouTube ─────────────────────────────────────────────────────────
-    try:
-        result = await search_yt(query)
+    # ── Parallel: assistant check + YouTube search (saves 1-2 seconds) ────────
+    async def _check_assistant():
+        status = await is_assistant_in(chat_id)
+        if status == "banned":
+            return "banned"
+        if not status:
+            # Don't edit message here to avoid extra Telegram lag
+            ok = await try_join_assistant(chat_id, pm)
+            return "joined" if ok else "failed"
+        return "ok"
 
+    try:
+        status, result = await asyncio.gather(
+            _check_assistant(),
+            search_yt(query),
+        )
     except Exception as e:
         await rich_edit(
             pm,
             rich_heading("❍ sᴇᴀʀᴄʜ ғᴀɪʟᴇᴅ", level=3)
-            + rich_note(
-                f"<code>{rich_esc(e)}</code>"
-            ),
+            + rich_note(f"<code>{rich_esc(e)}</code>"),
         )
+        return
+
+    if status == "banned":
+        await rich_edit(
+            pm,
+            rich_heading("❍ ᴀssɪsᴛᴀɴᴛ ʙᴀɴɴᴇᴅ", level=3)
+            + rich_note("ᴘʟᴇᴀsᴇ ᴜɴʙᴀɴ ᴀssɪsᴛᴀɴᴛ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ"),
+        )
+        return
+
+    if status == "failed":
         return
 
     # ── Playlist ───────────────────────────────────────────────────────────────
