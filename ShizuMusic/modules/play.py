@@ -168,7 +168,7 @@ async def play_handler(_, message: Message) -> None:
                 await call_py.leave_call(chat_id)
             except Exception:
                 pass
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.4)
         else:
             add_to_queue(chat_id, song)
 
@@ -406,7 +406,7 @@ async def _process_play(
                 await call_py.leave_call(chat_id)
             except Exception:
                 pass
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.4)
             first_song = peek_current(chat_id)
             if first_song:
                 await play_song(chat_id, pm, first_song)
@@ -495,7 +495,7 @@ async def _process_play(
             await call_py.leave_call(chat_id)
         except Exception:
             pass
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.4)
         await play_song(chat_id, pm, song)
         return
 
