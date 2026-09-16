@@ -329,35 +329,37 @@ async def download_video(link: str) -> str:
 # ═════════════════════════════════════════════════════════════════════════════
 
 async def resolve_stream(url: str) -> str:
-    """Resolve a YouTube URL or local file to a local audio file."""
+    """Resolve a YouTube URL or local file to a streamable source (prefer direct URL)."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
+    # Memory cache (direct URL or local path)
     cached = _file_cache.get(url)
-
-    if cached and os.path.exists(cached):
-        logger.info("[shruti] Memory cache hit")
-        return cached
+    if cached:
+        # Local file still exists?
+        if os.path.exists(cached) and os.path.isfile(cached):
+            logger.info("[cache] Memory + disk hit")
+            return cached
+        # Direct URL — reuse it (they usually last minutes)
+        if cached.startswith("http"):
+            logger.info("[cache] Memory direct-URL hit")
+            return cached
 
     video_id = _extract_video_id(url)
 
-    file_path = os.path.join(
-        DOWNLOAD_DIR,
-        f"{video_id}.mp3",
-    )
-
+    # Disk cache (already downloaded mp3)
+    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
     if os.path.exists(file_path):
         try:
             if os.path.getsize(file_path) > 0:
                 _file_cache[url] = file_path
-                logger.info("[shruti] Disk cache hit")
+                logger.info("[cache] Disk hit")
                 return file_path
         except Exception:
             pass
 
-    # Fast path: resolve a playable YouTube audio URL without downloading the
-    # complete MP3. If Telegram/PyTgCalls cannot use it, the caller can retry
-    # through the download fallback below.
+    # ── FAST PATH: direct stream URL (no full download) ──────────────────────
+    # This is what makes other bots play in 2-3 seconds.
     try:
         direct_url = await resolve_direct_stream(url)
         if direct_url and direct_url != url:
@@ -367,58 +369,74 @@ async def resolve_stream(url: str) -> str:
     except Exception as e:
         logger.warning(f"[youtube] Direct stream unavailable: {e}")
 
-    logger.info(f"[shruti] Downloading: {video_id}")
-
+    # ── FALLBACK: full download via Shruti ───────────────────────────────────
+    logger.info(f"[shruti] Downloading (fallback): {video_id}")
     downloaded = await download_song(url)
 
     if downloaded:
         _file_cache[url] = downloaded
-
-        logger.info(
-            f"[shruti] Done — "
-            f"{os.path.getsize(downloaded) // 1024} KB"
-        )
-
+        logger.info(f"[shruti] Done — {os.path.getsize(downloaded) // 1024} KB")
         return downloaded
 
-    raise Exception(
-        "Shruti API download failed. Please try again."
-    )
+    raise Exception("Stream resolve + download both failed. Please try again.")
 
 
-async def resolve_direct_stream(url: str) -> str:
-    """Get a temporary YouTube audio URL quickly; fall back to local download."""
+async def resolve_direct_stream(url: str) -> str | None:
+    """Get a temporary YouTube audio URL quickly. Returns None on failure (no download)."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
     try:
         def _extract():
+            # Optimized for speed — android/ios client + skip heavy pages
             options = {
                 "quiet": True,
                 "no_warnings": True,
                 "noplaylist": True,
-                "format": "bestaudio/best",
+                "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
                 "skip_download": True,
                 "source_address": "0.0.0.0",
+                "socket_timeout": 7,
+                "retries": 1,
+                "fragment_retries": 1,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "ios", "web"],
+                        "player_skip": ["webpage", "configs", "js"],
+                    }
+                },
+                "http_headers": {
+                    "User-Agent": (
+                        "Mozilla/5.0 (Linux; Android 13) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Mobile Safari/537.36"
+                    ),
+                },
             }
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(url, download=False)
-                return info.get("url")
+                if info.get("url"):
+                    return info["url"]
+                for f in info.get("formats") or []:
+                    if f.get("url") and f.get("acodec") not in (None, "none"):
+                        return f["url"]
+                return None
 
-        direct_url = await asyncio.to_thread(_extract)
+        direct_url = await asyncio.wait_for(
+            asyncio.to_thread(_extract),
+            timeout=8.0,
+        )
         if direct_url:
-            logger.info("[youtube] Direct audio stream resolved")
+            logger.info("[youtube] Direct audio stream resolved (fast)")
             return direct_url
+    except asyncio.TimeoutError:
+        logger.warning("[youtube] Direct stream timed out (8s)")
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.warning(f"[youtube] Direct stream failed, using download fallback: {e}")
+        logger.warning(f"[youtube] Direct stream failed: {e}")
 
-    downloaded = await download_song(url)
-    if downloaded:
-        return downloaded
-
-    raise Exception("YouTube stream and download fallback both failed. Please try again.")
+    return None
 
 
 # ═════════════════════════════════════════════════════════════════════════════
