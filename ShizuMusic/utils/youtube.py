@@ -24,18 +24,18 @@ from ShizuMusic.utils.formatters import sec_to_iso
 logger = logging.getLogger(__name__)
 
 # ── API config ────────────────────────────────────────────────────────────────
-SHRUTI_API_URL = os.environ.get(
-    "SHRUTI_API_URL",
-    "https://api.shrutibots.site",
-)
-SHRUTI_API_KEY = os.environ.get(
-    "SHRUTI_API_KEY",
-    "ShrutiBots88hgntDhLBAxmui2bE72",
+MEOW_API_URL = os.environ.get(
+    "MEOW_API_URL",
+    "https://music.yukiapi.site",
+).rstrip("/")
+MEOW_API_KEY = os.environ.get(
+    "MEOW_API_KEY",
+    "YOUR_API_KEY",
 )
 
 DOWNLOAD_DIR = "downloads"
-SHRUTI_TOKEN_TIMEOUT = 10
-SHRUTI_STREAM_TIMEOUT = 900
+MEOW_TOKEN_TIMEOUT = 10
+MEOW_STREAM_TIMEOUT = 900
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -112,10 +112,10 @@ async def _get_http_session() -> aiohttp.ClientSession:
 
     if _http_session is None or _http_session.closed:
         timeout = aiohttp.ClientTimeout(
-            total=SHRUTI_STREAM_TIMEOUT,
-            connect=SHRUTI_TOKEN_TIMEOUT,
-            sock_connect=SHRUTI_TOKEN_TIMEOUT,
-            sock_read=SHRUTI_STREAM_TIMEOUT,
+            total=MEOW_STREAM_TIMEOUT,
+            connect=MEOW_TOKEN_TIMEOUT,
+            sock_connect=MEOW_TOKEN_TIMEOUT,
+            sock_read=MEOW_STREAM_TIMEOUT,
         )
 
         connector = aiohttp.TCPConnector(
@@ -202,17 +202,17 @@ async def download_song(link: str) -> str:
             session = await _get_http_session()
 
             async with session.get(
-                f"{SHRUTI_API_URL}/download",
+                f"{MEOW_API_URL}/stream/{video_id}",
                 params={
-                    "url": video_id,
+                    "key": MEOW_API_KEY,
                     "type": "audio",
-                    "api_key": SHRUTI_API_KEY,
+                    "quality": "128",
                 },
             ) as resp:
 
                 if resp.status != 200:
                     logger.warning(
-                        f"[shruti] Audio download failed: HTTP {resp.status}"
+                        f"[meow] Audio download failed: HTTP {resp.status}"
                     )
                     return None
 
@@ -237,7 +237,7 @@ async def download_song(link: str) -> str:
 
         except Exception as e:
             logger.error(
-                f"[shruti] download_song error: {e}"
+                f"[meow] download_song error: {e}"
             )
             _cleanup(temp_path)
             return None
@@ -283,17 +283,17 @@ async def download_video(link: str) -> str:
             session = await _get_http_session()
 
             async with session.get(
-                f"{SHRUTI_API_URL}/download",
+                f"{MEOW_API_URL}/stream/{video_id}",
                 params={
-                    "url": video_id,
+                    "key": MEOW_API_KEY,
                     "type": "video",
-                    "api_key": SHRUTI_API_KEY,
+                    "quality": "480",
                 },
             ) as resp:
 
                 if resp.status != 200:
                     logger.warning(
-                        f"[shruti] Video download failed: HTTP {resp.status}"
+                        f"[meow] Video download failed: HTTP {resp.status}"
                     )
                     return None
 
@@ -318,7 +318,7 @@ async def download_video(link: str) -> str:
 
         except Exception as e:
             logger.error(
-                f"[shruti] download_video error: {e}"
+                f"[meow] download_video error: {e}"
             )
             _cleanup(temp_path)
             return None
@@ -336,7 +336,7 @@ async def resolve_stream(url: str) -> str:
     cached = _file_cache.get(url)
 
     if cached and os.path.exists(cached):
-        logger.info("[shruti] Memory cache hit")
+        logger.info("[meow] Memory cache hit")
         return cached
 
     video_id = _extract_video_id(url)
@@ -350,7 +350,7 @@ async def resolve_stream(url: str) -> str:
         try:
             if os.path.getsize(file_path) > 0:
                 _file_cache[url] = file_path
-                logger.info("[shruti] Disk cache hit")
+                logger.info("[meow] Disk cache hit")
                 return file_path
         except Exception:
             pass
@@ -367,7 +367,7 @@ async def resolve_stream(url: str) -> str:
     except Exception as e:
         logger.warning(f"[youtube] Direct stream unavailable: {e}")
 
-    logger.info(f"[shruti] Downloading: {video_id}")
+    logger.info(f"[meow] Downloading: {video_id}")
 
     downloaded = await download_song(url)
 
@@ -375,7 +375,7 @@ async def resolve_stream(url: str) -> str:
         _file_cache[url] = downloaded
 
         logger.info(
-            f"[shruti] Done — "
+            f"[meow] Done — "
             f"{os.path.getsize(downloaded) // 1024} KB"
         )
 
