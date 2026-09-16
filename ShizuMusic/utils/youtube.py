@@ -382,34 +382,32 @@ async def resolve_stream(url: str) -> str:
 
 
 async def resolve_direct_stream(url: str) -> str | None:
-    """Get a temporary YouTube audio URL quickly. Returns None on failure (no download)."""
+    """Get a temporary YouTube audio URL as fast as possible. Returns None on failure."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
     try:
         def _extract():
-            # Optimized for speed — android/ios client + skip heavy pages
+            # Ultra-fast options: android client first, skip everything heavy
             options = {
                 "quiet": True,
                 "no_warnings": True,
                 "noplaylist": True,
                 "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
                 "skip_download": True,
-                "source_address": "0.0.0.0",
-                "socket_timeout": 7,
-                "retries": 1,
-                "fragment_retries": 1,
+                "socket_timeout": 4,
+                "retries": 0,
+                "fragment_retries": 0,
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "ios", "web"],
+                        "player_client": ["android", "ios"],
                         "player_skip": ["webpage", "configs", "js"],
                     }
                 },
                 "http_headers": {
                     "User-Agent": (
-                        "Mozilla/5.0 (Linux; Android 13) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Mobile Safari/537.36"
+                        "com.google.android.youtube/19.09.37 "
+                        "(Linux; U; Android 13) gzip"
                     ),
                 },
             }
@@ -417,20 +415,20 @@ async def resolve_direct_stream(url: str) -> str | None:
                 info = ydl.extract_info(url, download=False)
                 if info.get("url"):
                     return info["url"]
-                for f in info.get("formats") or []:
+                for f in (info.get("formats") or []):
                     if f.get("url") and f.get("acodec") not in (None, "none"):
                         return f["url"]
                 return None
 
         direct_url = await asyncio.wait_for(
             asyncio.to_thread(_extract),
-            timeout=8.0,
+            timeout=5.5,
         )
         if direct_url:
-            logger.info("[youtube] Direct audio stream resolved (fast)")
+            logger.info("[youtube] Direct stream OK (fast path)")
             return direct_url
     except asyncio.TimeoutError:
-        logger.warning("[youtube] Direct stream timed out (8s)")
+        logger.warning("[youtube] Direct stream timeout (5.5s)")
     except asyncio.CancelledError:
         raise
     except Exception as e:
@@ -537,7 +535,55 @@ async def search_yt(query: str):
 
         return result
 
-    # ── Single video search ──────────────────────────────────────────────────
+    # ── Fast path: query is already a YouTube URL ────────────────────────────
+    # Skip VideosSearch (slow) and extract metadata directly with yt-dlp.
+    is_yt_url = (
+        "youtube.com" in query
+        or "youtu.be" in query
+        or re.match(r"^[a-zA-Z0-9_-]{11}$", query)
+    )
+
+    if is_yt_url:
+        try:
+            def _meta():
+                opts = {
+                    "quiet": True,
+                    "no_warnings": True,
+                    "noplaylist": True,
+                    "skip_download": True,
+                    "socket_timeout": 4,
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["android"],
+                            "player_skip": ["webpage", "configs", "js"],
+                        }
+                    },
+                }
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(query, download=False)
+                    return info
+
+            info = await asyncio.wait_for(
+                asyncio.to_thread(_meta),
+                timeout=5.0,
+            )
+            if info:
+                vid = info.get("id") or _extract_video_id(query)
+                url = f"https://www.youtube.com/watch?v={vid}"
+                title = info.get("title") or "Unknown"
+                secs = int(info.get("duration") or 0)
+                thumb = (
+                    info.get("thumbnail")
+                    or f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
+                )
+                result = (url, title, sec_to_iso(secs), thumb)
+                _search_cache[cache_key] = result
+                logger.info("[youtube] URL fast-path metadata OK")
+                return result
+        except Exception as e:
+            logger.warning(f"[youtube] URL fast-path failed, falling to search: {e}")
+
+    # ── Normal search (song name) ────────────────────────────────────────────
     logger.info(f"[youtube] Searching: {query}")
 
     search = VideosSearch(
