@@ -73,7 +73,7 @@ async def try_join_assistant(chat_id: int, pm: Message) -> bool:
             )
 
         await assistant.join_chat(invite_link)
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.8)
         return True
 
     except UserAlreadyParticipant:
