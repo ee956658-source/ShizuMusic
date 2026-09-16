@@ -43,7 +43,7 @@ START_PHOTOS = [
 # ── Limits ────────────────────────────────────────────────────────────────────
 MAX_DURATION_SECONDS = 1800   # 30 minutes
 QUEUE_LIMIT          = 20
-COOLDOWN             = 10     # seconds between /play per chat
+COOLDOWN             = 3     # seconds between /play per chat
 
 
 #BLOCKED_EXTENSIONS = [
