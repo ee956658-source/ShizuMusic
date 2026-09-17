@@ -305,67 +305,37 @@ async def play_song(
             )
 
     # ─────────────────────────────────────────
-    # PLAY STREAM
+    # PLAY STREAM (simple direct — no NexGen lag)
     # ─────────────────────────────────────────
 
     played = False
-    used_remote = isinstance(media_path, str) and media_path.startswith("http")
-    fallback_done = False
 
-    # FFmpeg flags help remote streams (NexGen) reconnect instead of going silent
-    _ffmpeg_remote = [
-        "-reconnect", "1",
-        "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "5",
-        "-timeout", "10000000",
-    ]
+    for attempt in range(2):
 
-    async def _do_play(path: str) -> None:
-        if is_video:
-            await call_py.play(
-                chat_id,
-                MediaStream(
-                    path,
-                    audio_parameters=AudioQuality.HIGH,
-                    video_parameters=VideoQuality.HD_720p,
-                    ffmpeg_parameters=_ffmpeg_remote if path.startswith("http") else None,
-                ),
-            )
-        else:
-            await call_py.play(
-                chat_id,
-                MediaStream(
-                    path,
-                    audio_parameters=AudioQuality.HIGH,
-                    video_flags=MediaStream.Flags.IGNORE,
-                    ffmpeg_parameters=_ffmpeg_remote if path.startswith("http") else None,
-                ),
-            )
-
-    async def _force_local_download() -> str | None:
-        """When remote stream fails/silent — download local file and retry."""
         try:
-            from ShizuMusic.utils.youtube import download_song, download_video, resolve_direct_stream
-            LOGGER.info(f"[PLAY] Remote stream weak — forcing local download for {url}")
-            # Prefer yt-dlp direct, then full download
-            try:
-                local = await resolve_direct_stream(url)
-                if local and not str(local).startswith("http"):
-                    return local
-            except Exception:
-                pass
+
             if is_video:
-                return await download_video(url)
-            return await download_song(url)
-        except Exception as de:
-            LOGGER.error(f"[PLAY] Force download failed: {de}")
-            return None
 
-    for attempt in range(3):
+                await call_py.play(
+                    chat_id,
+                    MediaStream(
+                        media_path,
+                        audio_parameters=AudioQuality.HIGH,
+                        video_parameters=VideoQuality.HD_720p,
+                    ),
+                )
 
-        try:
+            else:
 
-            await _do_play(media_path)
+                await call_py.play(
+                    chat_id,
+                    MediaStream(
+                        media_path,
+                        audio_parameters=AudioQuality.HIGH,
+                        video_flags=MediaStream.Flags.IGNORE,
+                    ),
+                )
+
             played = True
             break
 
@@ -437,7 +407,6 @@ async def play_song(
                 )
             )
 
-            # auto create vc (string-based fallback)
             if vc_missing and attempt == 0:
 
                 LOGGER.info(
@@ -461,37 +430,6 @@ async def play_song(
 
                 return
 
-            # Remote stream (NexGen) failed → force local download once
-            media_err = any(
-                x in err
-                for x in (
-                    "ffmpeg",
-                    "stream",
-                    "http",
-                    "url",
-                    "codec",
-                    "invalid data",
-                    "error opening",
-                    "input/output",
-                    "connection",
-                    "timeout",
-                    "403",
-                    "404",
-                    "500",
-                    "unable",
-                    "failed to",
-                )
-            )
-            if (used_remote or media_err) and not fallback_done:
-                fallback_done = True
-                LOGGER.warning(f"[PLAY] Stream failed ({e}) — trying local download")
-                local = await _force_local_download()
-                if local:
-                    media_path = local
-                    used_remote = False
-                    continue
-
-            # admin permission error
             if (
                 "chat_admin_required" in err
                 or "admin" in err
@@ -524,7 +462,6 @@ async def play_song(
 
                 return
 
-            # generic error
             try:
                 remove_from_queue(
                     chat_id,
