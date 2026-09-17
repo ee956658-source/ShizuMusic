@@ -186,7 +186,7 @@ async def _ensure_vc(chat_id: int) -> bool:
         )
 
         LOGGER.info(f"[VC] Created in {chat_id}")
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.25)  # reduced for speed
         return True
 
     except TelegramServerError as e:
@@ -326,7 +326,7 @@ async def play_song(
                 )
 
             else:
-
+                # HIGH is fine; stream URL starts immediately (no local download)
                 await call_py.play(
                     chat_id,
                     MediaStream(
