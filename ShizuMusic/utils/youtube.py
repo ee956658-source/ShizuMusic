@@ -379,7 +379,7 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
 async def resolve_stream(url: str, video: bool = False) -> str:
     """
     Ultra-fast stream resolver.
-    Strategy: cache → disk → RACE (NexGen + yt-dlp direct) → download fallback.
+    Strategy: cache → disk → NexGen stream → download fallback.
     Target: < 1.5s on warm path, < 2.5s on cold path.
     """
     if os.path.exists(url) and os.path.isfile(url):
@@ -406,76 +406,9 @@ async def resolve_stream(url: str, video: bool = False) -> str:
         except Exception:
             pass
 
-    # ── RACE: NexGen + yt-dlp direct (first success wins) ────────────────────
-    async def _try_nexgen():
-        if not video_id:
-            return None
-        return await _nexgen_stream(video_id, video=video)
-
-    async def _try_direct():
-        return await resolve_direct_stream(url, video=video)
-
-    tasks = [
-        asyncio.create_task(_try_nexgen()),
-        asyncio.create_task(_try_direct()),
-    ]
-
-    winner = None
-    try:
-        done, pending = await asyncio.wait(
-            tasks,
-            return_when=asyncio.FIRST_COMPLETED,
-            timeout=2.2,
-        )
-
-        for t in done:
-            try:
-                result = t.result()
-                if result and isinstance(result, str) and (
-                    result.startswith("http") or os.path.exists(result)
-                ):
-                    winner = result
-                    break
-            except Exception:
-                pass
-
-        # Cancel losers immediately
-        for p in pending:
-            p.cancel()
-            try:
-                await p
-            except (asyncio.CancelledError, Exception):
-                pass
-
-        # If first finished but failed, give the other a tiny bit more time
-        if not winner and pending:
-            try:
-                done2, _ = await asyncio.wait(pending, timeout=1.0)
-                for t in done2:
-                    try:
-                        result = t.result()
-                        if result and isinstance(result, str) and (
-                            result.startswith("http") or os.path.exists(result)
-                        ):
-                            winner = result
-                            break
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            for p in pending:
-                if not p.done():
-                    p.cancel()
-    except Exception as e:
-        logger.warning(f"[resolve] race error: {e}")
-        for t in tasks:
-            if not t.done():
-                t.cancel()
-
-    if winner:
-        _file_cache[cache_key] = winner
-        logger.info("[resolve] race winner ready")
-        return winner
+    # ── PRIMARY: NexGen stream only ─────────────────────────────────────────
+    # Direct yt-dlp extraction is intentionally disabled in this variant.
+    winner = await _nexgen_stream(video_id, video=video) if video_id else None
 
     # ── Last resort: full download (slow) ────────────────────────────────────
     logger.info(f"[download] fallback: {video_id}")
