@@ -51,7 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
-NEXGEN_TIMEOUT = 6
+NEXGEN_TIMEOUT = 3.5
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
