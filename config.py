@@ -40,10 +40,15 @@ START_PHOTOS = [
     "https://files.catbox.moe/sfqdhn.jpg",
 ]
 
+# ── NexGenBots API (fast stream) ──────────────────────────────────────────────
+NEXGEN_API_KEY       = os.getenv("NEXGEN_API_KEY", "30DxNexGenBots66383d")
+NEXGEN_API_URL       = os.getenv("NEXGEN_API_URL", "https://pvtz.nexgenbots.xyz")
+NEXGEN_VIDEO_API_URL = os.getenv("NEXGEN_VIDEO_API_URL", "https://api.video.nexgenbots.xyz")
+
 # ── Limits ────────────────────────────────────────────────────────────────────
 MAX_DURATION_SECONDS = 1800   # 30 minutes
 QUEUE_LIMIT          = 20
-COOLDOWN             = 3     # seconds between /play per chat
+COOLDOWN             = 3      # seconds between /play per chat (fast bots use 2-3s)
 
 
 #BLOCKED_EXTENSIONS = [
