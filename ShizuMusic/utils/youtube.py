@@ -379,7 +379,7 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
 async def resolve_stream(url: str, video: bool = False) -> str:
     """
     Ultra-fast stream resolver.
-    Strategy: cache → disk → NexGen stream → download fallback.
+    Strategy: cache → disk → RACE (NexGen + yt-dlp direct) → download fallback.
     Target: < 1.5s on warm path, < 2.5s on cold path.
     """
     if os.path.exists(url) and os.path.isfile(url):
@@ -406,9 +406,67 @@ async def resolve_stream(url: str, video: bool = False) -> str:
         except Exception:
             pass
 
-    # ── PRIMARY: NexGen stream only ─────────────────────────────────────────
-    # Direct yt-dlp extraction is intentionally disabled in this variant.
-    winner = await _nexgen_stream(video_id, video=video) if video_id else None
+    # ── RACE: NexGen + yt-dlp direct (first SUCCESS wins) ───────────────────
+    async def _try_nexgen():
+        if not video_id:
+            return None
+        return await _nexgen_stream(video_id, video=video)
+
+    async def _try_direct():
+        return await resolve_direct_stream(url, video=video)
+
+    tasks = [
+        asyncio.create_task(_try_nexgen()),
+        asyncio.create_task(_try_direct()),
+    ]
+
+    winner = None
+    try:
+        # Give the first completed task a chance, but never treat a failed
+        # task as the winner. If it fails, keep the other task alive briefly.
+        done, pending = await asyncio.wait(
+            tasks, return_when=asyncio.FIRST_COMPLETED, timeout=2.2
+        )
+
+        async def _consume(task_set):
+            nonlocal winner
+            for task in task_set:
+                try:
+                    result = task.result()
+                    if result and isinstance(result, str) and (
+                        result.startswith('http') or os.path.exists(result)
+                    ):
+                        winner = result
+                        return True
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    logger.debug(f'[resolve] stream candidate failed: {exc}')
+            return False
+
+        await _consume(done)
+
+        if not winner and pending:
+            done2, still_pending = await asyncio.wait(
+                pending, timeout=1.0
+            )
+            await _consume(done2)
+            for task in still_pending:
+                task.cancel()
+            if still_pending:
+                await asyncio.gather(*still_pending, return_exceptions=True)
+
+    except Exception as e:
+        logger.warning(f'[resolve] race error: {e}')
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    if winner:
+        _file_cache[cache_key] = winner
+        logger.info("[resolve] race winner ready")
+        return winner
 
     # ── Last resort: full download (slow) ────────────────────────────────────
     logger.info(f"[download] fallback: {video_id}")
