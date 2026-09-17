@@ -258,6 +258,7 @@ async def _process_play(
 
     chat_id = message.chat.id
 
+    # One status message (bot looks alive) — no extra Loading edit
     pm = await rich_send(
         bot,
         chat_id,
@@ -276,13 +277,19 @@ async def _process_play(
                 + m.group(1)
             )
 
-    # ── Parallel: assistant check + YouTube search (saves 1-2 seconds) ────────
+    # ── Parallel: assistant check + YouTube search ────────────────────────────
     async def _check_assistant():
         status = await is_assistant_in(chat_id)
         if status == "banned":
             return "banned"
         if not status:
-            # Don't edit message here to avoid extra Telegram lag
+            try:
+                await rich_edit(
+                    pm,
+                    rich_heading("❍ ᴀssɪsᴛᴀɴᴛ ᴊᴏɪɴɪɴɢ...", level=3),
+                )
+            except Exception:
+                pass
             ok = await try_join_assistant(chat_id, pm)
             return "joined" if ok else "failed"
         return "ok"
@@ -404,10 +411,7 @@ async def _process_play(
                     first_song,
                 )
         else:
-            try:
-                await pm.delete()
-            except Exception:
-                pass
+            pass
 
         return
 
