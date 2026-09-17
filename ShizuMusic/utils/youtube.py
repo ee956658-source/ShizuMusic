@@ -51,7 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
-NEXGEN_TIMEOUT = 2.0
+NEXGEN_TIMEOUT = 1.2  # if slower than this, skip — don't block yt-dlp
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -377,7 +377,7 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
 
 
 async def resolve_stream(url: str, video: bool = False) -> str:
-    """NexGen first (your API) → yt-dlp → download. Max 2s wait on NexGen."""
+    """Direct yt-dlp stream only — NexGen disabled (was causing 10-12s lag)."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
@@ -394,7 +394,7 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     video_id = _extract_video_id(url)
     ext = "mp4" if video else "mp3"
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.{ext}")
-    if video_id and os.path.exists(file_path):
+    if os.path.exists(file_path):
         try:
             if os.path.getsize(file_path) > 0:
                 _file_cache[cache_key] = file_path
@@ -402,23 +402,7 @@ async def resolve_stream(url: str, video: bool = False) -> str:
         except Exception:
             pass
 
-    # 1) NexGen API (your key) — 2s max
-    if video_id:
-        try:
-            link = await asyncio.wait_for(
-                _nexgen_stream(video_id, video=video),
-                timeout=NEXGEN_TIMEOUT,
-            )
-            if link:
-                _file_cache[cache_key] = link
-                logger.info("[nexgen] using stream")
-                return link
-        except asyncio.TimeoutError:
-            logger.warning("[nexgen] timeout 2s — yt-dlp")
-        except Exception as e:
-            logger.warning(f"[nexgen] skip: {e}")
-
-    # 2) yt-dlp direct
+    # Fast path: yt-dlp direct URL only
     try:
         direct_url = await resolve_direct_stream(url)
         if direct_url and direct_url != url:
@@ -428,7 +412,7 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     except Exception as e:
         logger.warning(f"[youtube] direct failed: {e}")
 
-    # 3) download last
+    # Last resort download
     logger.info(f"[download] fallback: {video_id}")
     if video:
         downloaded = await download_video(url)
