@@ -48,7 +48,7 @@ NEXGEN_VIDEO_API_URL = os.getenv("NEXGEN_VIDEO_API_URL", "https://api.video.nexg
 # ── Limits ────────────────────────────────────────────────────────────────────
 MAX_DURATION_SECONDS = 1800   # 30 minutes
 QUEUE_LIMIT          = 20
-COOLDOWN             = 3      # seconds between /play per chat (fast bots use 2-3s)
+COOLDOWN             = 2      # seconds between /play per chat (fast bots use 2-3s)
 
 
 #BLOCKED_EXTENSIONS = [
