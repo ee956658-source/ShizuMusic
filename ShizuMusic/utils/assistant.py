@@ -17,28 +17,48 @@ import asyncio
 from pyrogram.errors import RPCError, UserAlreadyParticipant
 from pyrogram.types import Message
 
+import time
+
 from ShizuMusic import assistant, bot
 from ShizuMusic.utils.rich_ui import rich_edit, rich_esc, rich_heading, rich_note
+
+# Cache assistant membership for 10 minutes (saves 0.3-0.8s per /play)
+_assistant_cache: dict[int, tuple] = {}  # chat_id -> (status, expire_ts)
+_me_id: int | None = None
+_CACHE_TTL = 600
 
 
 async def is_assistant_in(chat_id: int):
     """
     Check whether the assistant is a member of the given group.
+    Cached 10 min to avoid Telegram API lag on every /play.
 
     Returns:
         True     — assistant is present
         False    — assistant is not present
         "banned" — assistant was banned from the group
     """
+    now = time.time()
+    cached = _assistant_cache.get(chat_id)
+    if cached and cached[1] > now:
+        return cached[0]
+
     try:
-        me     = await assistant.get_me()
-        member = await assistant.get_chat_member(chat_id, me.id)
-        return member.status is not None
+        global _me_id
+        if _me_id is None:
+            me = await assistant.get_me()
+            _me_id = me.id
+        member = await assistant.get_chat_member(chat_id, _me_id)
+        status = member.status is not None
+        _assistant_cache[chat_id] = (status, now + _CACHE_TTL)
+        return status
 
     except Exception as e:
         err = str(e)
         if "USER_BANNED" in err or "Banned" in err:
+            _assistant_cache[chat_id] = ("banned", now + 60)
             return "banned"
+        _assistant_cache[chat_id] = (False, now + 30)
         return False
 
 
