@@ -51,7 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
-NEXGEN_TIMEOUT = 1.2  # if slower than this, skip — don't block yt-dlp
+NEXGEN_TIMEOUT = 2.0
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -377,9 +377,7 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
 
 
 async def resolve_stream(url: str, video: bool = False) -> str:
-    """Resolve stream. Race NexGen (1.2s max) vs yt-dlp — first winner wins.
-    Slow NexGen no longer blocks; was causing 10s delays.
-    """
+    """NexGen first (your API) → yt-dlp → download. Max 2s wait on NexGen."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
@@ -387,74 +385,51 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     cached = _file_cache.get(cache_key) or _file_cache.get(url)
     if cached:
         if os.path.exists(cached) and os.path.isfile(cached):
-            logger.info("[cache] Memory + disk hit")
+            logger.info("[cache] hit")
             return cached
         if isinstance(cached, str) and cached.startswith("http"):
-            logger.info("[cache] Memory direct-URL hit")
+            logger.info("[cache] url hit")
             return cached
 
     video_id = _extract_video_id(url)
-
     ext = "mp4" if video else "mp3"
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.{ext}")
-    if os.path.exists(file_path):
+    if video_id and os.path.exists(file_path):
         try:
             if os.path.getsize(file_path) > 0:
                 _file_cache[cache_key] = file_path
-                logger.info("[cache] Disk hit")
                 return file_path
         except Exception:
             pass
 
-    # ── RACE: NexGen (short timeout) + yt-dlp in parallel ────────────────────
-    async def _try_nexgen():
-        if not video_id:
-            return None
-        return await _nexgen_stream(video_id, video=video)
-
-    async def _try_ytdlp():
+    # 1) NexGen API (your key) — 2s max
+    if video_id:
         try:
-            u = await resolve_direct_stream(url)
-            if u and u != url:
-                return u
-        except Exception as e:
-            logger.warning(f"[youtube] yt-dlp failed: {e}")
-        return None
-
-    tasks = [
-        asyncio.create_task(_try_nexgen()),
-        asyncio.create_task(_try_ytdlp()),
-    ]
-    winner = None
-    try:
-        while tasks:
-            done, pending = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED
+            link = await asyncio.wait_for(
+                _nexgen_stream(video_id, video=video),
+                timeout=NEXGEN_TIMEOUT,
             )
-            for t in done:
-                try:
-                    result = t.result()
-                    if result:
-                        winner = result
-                        break
-                except Exception:
-                    pass
-            if winner:
-                for p in pending:
-                    p.cancel()
-                break
-            tasks = list(pending)
+            if link:
+                _file_cache[cache_key] = link
+                logger.info("[nexgen] using stream")
+                return link
+        except asyncio.TimeoutError:
+            logger.warning("[nexgen] timeout 2s — yt-dlp")
+        except Exception as e:
+            logger.warning(f"[nexgen] skip: {e}")
+
+    # 2) yt-dlp direct
+    try:
+        direct_url = await resolve_direct_stream(url)
+        if direct_url and direct_url != url:
+            _file_cache[cache_key] = direct_url
+            logger.info("[youtube] direct stream OK")
+            return direct_url
     except Exception as e:
-        logger.warning(f"[resolve] race error: {e}")
+        logger.warning(f"[youtube] direct failed: {e}")
 
-    if winner:
-        _file_cache[cache_key] = winner
-        src = "nexgen" if "nexgenbots" in str(winner) else "yt-dlp"
-        logger.info(f"[resolve] Winner: {src}")
-        return winner
-
-    # ── Last resort: full download ───────────────────────────────────────────
-    logger.info(f"[shruti] Downloading (fallback): {video_id}")
+    # 3) download last
+    logger.info(f"[download] fallback: {video_id}")
     if video:
         downloaded = await download_video(url)
     else:
@@ -462,10 +437,9 @@ async def resolve_stream(url: str, video: bool = False) -> str:
 
     if downloaded:
         _file_cache[cache_key] = downloaded
-        logger.info(f"[shruti] Done — {os.path.getsize(downloaded) // 1024} KB")
         return downloaded
 
-    raise Exception("All stream methods failed. Please try again.")
+    raise Exception("Stream failed. Please try again.")
 
 
 async def resolve_direct_stream(url: str) -> str | None:
