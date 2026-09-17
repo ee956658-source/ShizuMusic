@@ -284,8 +284,10 @@ async def play_song(
     # RESOLVE STREAM
     # ─────────────────────────────────────────
 
+    is_video = song.get("video", False)
+
     try:
-        media_path = await resolve_stream(url)
+        media_path = await resolve_stream(url, video=is_video)
 
     except Exception as e:
 
@@ -310,11 +312,6 @@ async def play_song(
         )
 
         return
-
-    is_video = song.get(
-        "video",
-        False,
-    )
 
     # ─────────────────────────────────────────
     # AUTO EFFECTS
