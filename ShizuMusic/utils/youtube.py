@@ -51,7 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
-NEXGEN_TIMEOUT = 1.2  # if slower than this, skip — don't block yt-dlp
+NEXGEN_TIMEOUT = 0.9  # ultra-tight — race with yt-dlp, don't block
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -345,7 +345,7 @@ async def download_video(link: str) -> str:
 # ═════════════════════════════════════════════════════════════════════════════
 
 async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
-    """Fetch playable stream URL from NexGenBots API (fastest path)."""
+    """Fetch playable stream URL from NexGenBots API (fast path)."""
     if not NEXGEN_API_KEY or not video_id:
         return None
 
@@ -359,25 +359,29 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
         async with session.get(
             api_url,
             params={"api": NEXGEN_API_KEY},
-            timeout=aiohttp.ClientTimeout(total=NEXGEN_TIMEOUT),
+            timeout=aiohttp.ClientTimeout(total=NEXGEN_TIMEOUT, connect=0.6),
         ) as resp:
             if resp.status != 200:
-                logger.warning(f"[nexgen] HTTP {resp.status} for {video_id}")
                 return None
             data = await resp.json(content_type=None)
             link = data.get("link") if isinstance(data, dict) else None
-            if link and data.get("status") == "done":
-                logger.info(f"[nexgen] Stream OK ({'video' if video else 'audio'})")
-                return link
+            if link and (data.get("status") in ("done", "ok", None) or True):
+                if link.startswith("http"):
+                    logger.info(f"[nexgen] Stream OK ({'video' if video else 'audio'})")
+                    return link
     except asyncio.TimeoutError:
-        logger.warning("[nexgen] Timeout")
+        logger.debug("[nexgen] Timeout")
     except Exception as e:
-        logger.warning(f"[nexgen] Failed: {e}")
+        logger.debug(f"[nexgen] Failed: {e}")
     return None
 
 
 async def resolve_stream(url: str, video: bool = False) -> str:
-    """Direct yt-dlp stream only — NexGen disabled (was causing 10-12s lag)."""
+    """
+    Ultra-fast stream resolver.
+    Strategy: cache → disk → RACE (NexGen + yt-dlp direct) → download fallback.
+    Target: < 1.5s on warm path, < 2.5s on cold path.
+    """
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
@@ -385,7 +389,7 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     cached = _file_cache.get(cache_key) or _file_cache.get(url)
     if cached:
         if os.path.exists(cached) and os.path.isfile(cached):
-            logger.info("[cache] hit")
+            logger.info("[cache] file hit")
             return cached
         if isinstance(cached, str) and cached.startswith("http"):
             logger.info("[cache] url hit")
@@ -394,7 +398,7 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     video_id = _extract_video_id(url)
     ext = "mp4" if video else "mp3"
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.{ext}")
-    if os.path.exists(file_path):
+    if video_id and os.path.exists(file_path):
         try:
             if os.path.getsize(file_path) > 0:
                 _file_cache[cache_key] = file_path
@@ -402,17 +406,78 @@ async def resolve_stream(url: str, video: bool = False) -> str:
         except Exception:
             pass
 
-    # Fast path: yt-dlp direct URL only
-    try:
-        direct_url = await resolve_direct_stream(url)
-        if direct_url and direct_url != url:
-            _file_cache[cache_key] = direct_url
-            logger.info("[youtube] direct stream OK")
-            return direct_url
-    except Exception as e:
-        logger.warning(f"[youtube] direct failed: {e}")
+    # ── RACE: NexGen + yt-dlp direct (first success wins) ────────────────────
+    async def _try_nexgen():
+        if not video_id:
+            return None
+        return await _nexgen_stream(video_id, video=video)
 
-    # Last resort download
+    async def _try_direct():
+        return await resolve_direct_stream(url, video=video)
+
+    tasks = [
+        asyncio.create_task(_try_nexgen()),
+        asyncio.create_task(_try_direct()),
+    ]
+
+    winner = None
+    try:
+        done, pending = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_COMPLETED,
+            timeout=2.2,
+        )
+
+        for t in done:
+            try:
+                result = t.result()
+                if result and isinstance(result, str) and (
+                    result.startswith("http") or os.path.exists(result)
+                ):
+                    winner = result
+                    break
+            except Exception:
+                pass
+
+        # Cancel losers immediately
+        for p in pending:
+            p.cancel()
+            try:
+                await p
+            except (asyncio.CancelledError, Exception):
+                pass
+
+        # If first finished but failed, give the other a tiny bit more time
+        if not winner and pending:
+            try:
+                done2, _ = await asyncio.wait(pending, timeout=1.0)
+                for t in done2:
+                    try:
+                        result = t.result()
+                        if result and isinstance(result, str) and (
+                            result.startswith("http") or os.path.exists(result)
+                        ):
+                            winner = result
+                            break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            for p in pending:
+                if not p.done():
+                    p.cancel()
+    except Exception as e:
+        logger.warning(f"[resolve] race error: {e}")
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+
+    if winner:
+        _file_cache[cache_key] = winner
+        logger.info("[resolve] race winner ready")
+        return winner
+
+    # ── Last resort: full download (slow) ────────────────────────────────────
     logger.info(f"[download] fallback: {video_id}")
     if video:
         downloaded = await download_video(url)
@@ -426,27 +491,33 @@ async def resolve_stream(url: str, video: bool = False) -> str:
     raise Exception("Stream failed. Please try again.")
 
 
-async def resolve_direct_stream(url: str) -> str | None:
-    """Get a temporary YouTube audio URL as fast as possible. Returns None on failure."""
+async def resolve_direct_stream(url: str, video: bool = False) -> str | None:
+    """Get a temporary YouTube stream URL as fast as possible."""
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
     try:
         def _extract():
-            # Ultra-fast options: android client first, skip everything heavy
+            # Maximum speed options — android client only, skip heavy work
+            fmt = (
+                "best[height<=720][ext=mp4]/best[height<=720]/best"
+                if video
+                else "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best"
+            )
             options = {
                 "quiet": True,
                 "no_warnings": True,
                 "noplaylist": True,
-                "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+                "format": fmt,
                 "skip_download": True,
-                "socket_timeout": 4,
+                "socket_timeout": 3,
                 "retries": 0,
                 "fragment_retries": 0,
+                "nocheckcertificate": True,
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "ios"],
-                        "player_skip": ["webpage", "configs", "js"],
+                        "player_client": ["android"],
+                        "player_skip": ["webpage", "configs", "js", "initial_data"],
                     }
                 },
                 "http_headers": {
@@ -458,22 +529,30 @@ async def resolve_direct_stream(url: str) -> str | None:
             }
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(url, download=False)
+                if not info:
+                    return None
                 if info.get("url"):
                     return info["url"]
-                for f in (info.get("formats") or []):
+                formats = info.get("formats") or []
+                # Prefer progressive / direct audio
+                for f in formats:
                     if f.get("url") and f.get("acodec") not in (None, "none"):
+                        if not video or f.get("vcodec") not in (None, "none"):
+                            return f["url"]
+                for f in formats:
+                    if f.get("url"):
                         return f["url"]
                 return None
 
         direct_url = await asyncio.wait_for(
             asyncio.to_thread(_extract),
-            timeout=5.5,
+            timeout=2.8,  # hard cap — don't let yt-dlp block longer
         )
         if direct_url:
-            logger.info("[youtube] Direct stream OK (fast path)")
+            logger.info("[youtube] Direct stream OK")
             return direct_url
     except asyncio.TimeoutError:
-        logger.warning("[youtube] Direct stream timeout (5.5s)")
+        logger.warning("[youtube] Direct stream timeout (2.8s)")
     except asyncio.CancelledError:
         raise
     except Exception as e:
@@ -610,7 +689,7 @@ async def search_yt(query: str):
 
             info = await asyncio.wait_for(
                 asyncio.to_thread(_meta),
-                timeout=5.0,
+                timeout=2.5,
             )
             if info:
                 vid = info.get("id") or _extract_video_id(query)
@@ -631,12 +710,14 @@ async def search_yt(query: str):
     # ── Normal search (song name) ────────────────────────────────────────────
     logger.info(f"[youtube] Searching: {query}")
 
-    search = VideosSearch(
-        query,
-        limit=1,
-    )
-
-    results = await search.next()
+    try:
+        search = VideosSearch(query, limit=1)
+        results = await asyncio.wait_for(search.next(), timeout=3.5)
+    except asyncio.TimeoutError:
+        raise Exception("Search timeout — try again or use YouTube link")
+    except Exception as e:
+        logger.warning(f"[youtube] Search error: {e}")
+        raise Exception("ɴᴏ ʀᴇsᴜʟᴛs ғᴏᴜɴᴅ")
 
     lst = results.get("result") or []
 
@@ -644,49 +725,21 @@ async def search_yt(query: str):
         raise Exception("ɴᴏ ʀᴇsᴜʟᴛs ғᴏᴜɴᴅ")
 
     r = lst[0]
-
     video_id = r.get("id")
-
     if not video_id:
         raise Exception("ɴᴏ ʀᴇsᴜʟᴛs ғᴏᴜɴᴅ")
 
-    url = (
-        r.get("link")
-        or f"https://www.youtube.com/watch?v={video_id}"
-    )
-
-    title = r.get(
-        "title",
-        "Unknown",
-    )
-
+    url = r.get("link") or f"https://www.youtube.com/watch?v={video_id}"
+    title = r.get("title", "Unknown")
     thumbs = r.get("thumbnails") or []
-
     thumb = ""
-
     if thumbs:
-        thumb = (
-            thumbs[0].get("url", "")
-            .split("?", 1)[0]
-        )
-
-    dur = r.get(
-        "duration",
-        "0:00",
-    )
-
+        thumb = thumbs[0].get("url", "").split("?", 1)[0]
+    dur = r.get("duration", "0:00")
     secs = _parse_duration(dur)
 
-    result = (
-        url,
-        title,
-        sec_to_iso(secs),
-        thumb,
-    )
-
-    # Cache search metadata.
+    result = (url, title, sec_to_iso(secs), thumb)
     _search_cache[cache_key] = result
-
     return result
 
 
