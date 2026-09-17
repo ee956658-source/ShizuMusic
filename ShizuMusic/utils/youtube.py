@@ -24,6 +24,21 @@ from ShizuMusic.utils.formatters import sec_to_iso
 logger = logging.getLogger(__name__)
 
 # ── API config ────────────────────────────────────────────────────────────────
+# NexGenBots (primary — fastest)
+NEXGEN_API_URL = os.environ.get(
+    "NEXGEN_API_URL",
+    "https://pvtz.nexgenbots.xyz",
+)
+NEXGEN_VIDEO_API_URL = os.environ.get(
+    "NEXGEN_VIDEO_API_URL",
+    "https://api.video.nexgenbots.xyz",
+)
+NEXGEN_API_KEY = os.environ.get(
+    "NEXGEN_API_KEY",
+    "30DxNexGenBots66383d",
+)
+
+# Shruti (fallback)
 SHRUTI_API_URL = os.environ.get(
     "SHRUTI_API_URL",
     "https://api.shrutibots.site",
@@ -36,6 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
+NEXGEN_TIMEOUT = 6
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -328,57 +344,100 @@ async def download_video(link: str) -> str:
 # PUBLIC — STREAM RESOLVER
 # ═════════════════════════════════════════════════════════════════════════════
 
-async def resolve_stream(url: str) -> str:
-    """Resolve a YouTube URL or local file to a streamable source (prefer direct URL)."""
+async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
+    """Fetch playable stream URL from NexGenBots API (fastest path)."""
+    if not NEXGEN_API_KEY or not video_id:
+        return None
+
+    try:
+        session = await _get_http_session()
+        if video:
+            api_url = f"{NEXGEN_VIDEO_API_URL}/video/{video_id}"
+        else:
+            api_url = f"{NEXGEN_API_URL}/song/{video_id}"
+
+        async with session.get(
+            api_url,
+            params={"api": NEXGEN_API_KEY},
+            timeout=aiohttp.ClientTimeout(total=NEXGEN_TIMEOUT),
+        ) as resp:
+            if resp.status != 200:
+                logger.warning(f"[nexgen] HTTP {resp.status} for {video_id}")
+                return None
+            data = await resp.json(content_type=None)
+            link = data.get("link") if isinstance(data, dict) else None
+            if link and data.get("status") == "done":
+                logger.info(f"[nexgen] Stream OK ({'video' if video else 'audio'})")
+                return link
+    except asyncio.TimeoutError:
+        logger.warning("[nexgen] Timeout")
+    except Exception as e:
+        logger.warning(f"[nexgen] Failed: {e}")
+    return None
+
+
+async def resolve_stream(url: str, video: bool = False) -> str:
+    """Resolve a YouTube URL or local file to a streamable source.
+    Priority: NexGen API → yt-dlp direct → Shruti download.
+    """
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
-    # Memory cache (direct URL or local path)
-    cached = _file_cache.get(url)
+    # Memory cache
+    cache_key = f"{'v:' if video else 'a:'}{url}"
+    cached = _file_cache.get(cache_key) or _file_cache.get(url)
     if cached:
-        # Local file still exists?
         if os.path.exists(cached) and os.path.isfile(cached):
             logger.info("[cache] Memory + disk hit")
             return cached
-        # Direct URL — reuse it (they usually last minutes)
-        if cached.startswith("http"):
+        if isinstance(cached, str) and cached.startswith("http"):
             logger.info("[cache] Memory direct-URL hit")
             return cached
 
     video_id = _extract_video_id(url)
 
-    # Disk cache (already downloaded mp3)
-    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
+    # Disk cache
+    ext = "mp4" if video else "mp3"
+    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.{ext}")
     if os.path.exists(file_path):
         try:
             if os.path.getsize(file_path) > 0:
-                _file_cache[url] = file_path
+                _file_cache[cache_key] = file_path
                 logger.info("[cache] Disk hit")
                 return file_path
         except Exception:
             pass
 
-    # ── FAST PATH: direct stream URL (no full download) ──────────────────────
-    # This is what makes other bots play in 2-3 seconds.
+    # ── 1. NexGenBots API (fastest — like top bots) ───────────────────────────
+    if video_id:
+        nexgen_link = await _nexgen_stream(video_id, video=video)
+        if nexgen_link:
+            _file_cache[cache_key] = nexgen_link
+            return nexgen_link
+
+    # ── 2. yt-dlp direct stream ───────────────────────────────────────────────
     try:
         direct_url = await resolve_direct_stream(url)
         if direct_url and direct_url != url:
-            _file_cache[url] = direct_url
-            logger.info("[youtube] Fast direct stream selected")
+            _file_cache[cache_key] = direct_url
+            logger.info("[youtube] yt-dlp direct stream selected")
             return direct_url
     except Exception as e:
         logger.warning(f"[youtube] Direct stream unavailable: {e}")
 
-    # ── FALLBACK: full download via Shruti ───────────────────────────────────
+    # ── 3. Shruti full download (last fallback) ───────────────────────────────
     logger.info(f"[shruti] Downloading (fallback): {video_id}")
-    downloaded = await download_song(url)
+    if video:
+        downloaded = await download_video(url)
+    else:
+        downloaded = await download_song(url)
 
     if downloaded:
-        _file_cache[url] = downloaded
+        _file_cache[cache_key] = downloaded
         logger.info(f"[shruti] Done — {os.path.getsize(downloaded) // 1024} KB")
         return downloaded
 
-    raise Exception("Stream resolve + download both failed. Please try again.")
+    raise Exception("All stream methods failed. Please try again.")
 
 
 async def resolve_direct_stream(url: str) -> str | None:
