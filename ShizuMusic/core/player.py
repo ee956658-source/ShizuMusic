@@ -256,33 +256,8 @@ async def play_song(
     if not url:
         return
 
-    loading_text = (
-        rich_heading(
-            "❍ ʟᴏᴀᴅɪɴɢ...",
-            level=3,
-        )
-        + rich_note(
-            f"<p>ᴛʀᴀᴄᴋ — {rich_esc(short(song['title']))}<br>"
-            "ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...</p>"
-        )
-    )
-
-    try:
-        await rich_edit(
-            message,
-            loading_text,
-        )
-
-    except Exception:
-        message = await rich_send(
-            bot,
-            chat_id,
-            loading_text,
-        )
-
-    # ─────────────────────────────────────────
-    # RESOLVE STREAM
-    # ─────────────────────────────────────────
+    # SPEED: skip "loading..." Telegram edit — every API call costs 200-500ms.
+    # Stream first, UI later.
 
     is_video = song.get("video", False)
 
@@ -313,11 +288,8 @@ async def play_song(
 
         return
 
-    # ─────────────────────────────────────────
-    # AUTO EFFECTS
-    # ─────────────────────────────────────────
-
-    if not is_video:
+    # Effects only on local files (remote NexGen streams skip — saves time)
+    if not is_video and not str(media_path).startswith("http"):
 
         try:
             from ShizuMusic.modules.effects import maybe_apply_effects
@@ -672,18 +644,20 @@ async def play_song(
                 parse_mode=ParseMode.HTML,
                 reply_markup=kb,
             )
-            try:
-                await message.delete()
-            except Exception:
-                pass
+            if message is not None:
+                try:
+                    await message.delete()
+                except Exception:
+                    pass
         except Exception as e:
             LOGGER.warning(f"[PLAYER THUMB] send_photo failed: {e}")
 
     if pmsg is None:
         try:
-            pmsg = await rich_edit(message, content, reply_markup=kb)
+            if message is not None:
+                pmsg = await rich_edit(message, content, reply_markup=kb)
             if pmsg is None:
-                pmsg = message
+                pmsg = await rich_send(bot, chat_id, content, reply_markup=kb)
         except Exception:
             pmsg = await rich_send(bot, chat_id, content, reply_markup=kb)
 
