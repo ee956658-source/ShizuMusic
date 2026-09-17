@@ -51,7 +51,7 @@ SHRUTI_API_KEY = os.environ.get(
 DOWNLOAD_DIR = "downloads"
 SHRUTI_TOKEN_TIMEOUT = 10
 SHRUTI_STREAM_TIMEOUT = 900
-NEXGEN_TIMEOUT = 3.5
+NEXGEN_TIMEOUT = 1.2  # if slower than this, skip — don't block yt-dlp
 
 # ── Caches ───────────────────────────────────────────────────────────────────
 _file_cache: dict[str, str] = {}
@@ -377,13 +377,12 @@ async def _nexgen_stream(video_id: str, video: bool = False) -> str | None:
 
 
 async def resolve_stream(url: str, video: bool = False) -> str:
-    """Resolve a YouTube URL or local file to a streamable source.
-    Priority: NexGen API → yt-dlp direct → Shruti download.
+    """Resolve stream. Race NexGen (1.2s max) vs yt-dlp — first winner wins.
+    Slow NexGen no longer blocks; was causing 10s delays.
     """
     if os.path.exists(url) and os.path.isfile(url):
         return url
 
-    # Memory cache
     cache_key = f"{'v:' if video else 'a:'}{url}"
     cached = _file_cache.get(cache_key) or _file_cache.get(url)
     if cached:
@@ -396,7 +395,6 @@ async def resolve_stream(url: str, video: bool = False) -> str:
 
     video_id = _extract_video_id(url)
 
-    # Disk cache
     ext = "mp4" if video else "mp3"
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.{ext}")
     if os.path.exists(file_path):
@@ -408,24 +406,54 @@ async def resolve_stream(url: str, video: bool = False) -> str:
         except Exception:
             pass
 
-    # ── 1. NexGenBots API (fastest — like top bots) ───────────────────────────
-    if video_id:
-        nexgen_link = await _nexgen_stream(video_id, video=video)
-        if nexgen_link:
-            _file_cache[cache_key] = nexgen_link
-            return nexgen_link
+    # ── RACE: NexGen (short timeout) + yt-dlp in parallel ────────────────────
+    async def _try_nexgen():
+        if not video_id:
+            return None
+        return await _nexgen_stream(video_id, video=video)
 
-    # ── 2. yt-dlp direct stream ───────────────────────────────────────────────
+    async def _try_ytdlp():
+        try:
+            u = await resolve_direct_stream(url)
+            if u and u != url:
+                return u
+        except Exception as e:
+            logger.warning(f"[youtube] yt-dlp failed: {e}")
+        return None
+
+    tasks = [
+        asyncio.create_task(_try_nexgen()),
+        asyncio.create_task(_try_ytdlp()),
+    ]
+    winner = None
     try:
-        direct_url = await resolve_direct_stream(url)
-        if direct_url and direct_url != url:
-            _file_cache[cache_key] = direct_url
-            logger.info("[youtube] yt-dlp direct stream selected")
-            return direct_url
+        while tasks:
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_COMPLETED
+            )
+            for t in done:
+                try:
+                    result = t.result()
+                    if result:
+                        winner = result
+                        break
+                except Exception:
+                    pass
+            if winner:
+                for p in pending:
+                    p.cancel()
+                break
+            tasks = list(pending)
     except Exception as e:
-        logger.warning(f"[youtube] Direct stream unavailable: {e}")
+        logger.warning(f"[resolve] race error: {e}")
 
-    # ── 3. Shruti full download (last fallback) ───────────────────────────────
+    if winner:
+        _file_cache[cache_key] = winner
+        src = "nexgen" if "nexgenbots" in str(winner) else "yt-dlp"
+        logger.info(f"[resolve] Winner: {src}")
+        return winner
+
+    # ── Last resort: full download ───────────────────────────────────────────
     logger.info(f"[shruti] Downloading (fallback): {video_id}")
     if video:
         downloaded = await download_video(url)
