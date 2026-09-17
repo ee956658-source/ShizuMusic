@@ -310,30 +310,42 @@ async def play_song(
 
     played = False
 
+    # A cached remote URL can expire even though resolve_stream reports a
+    # cache hit. Give the call engine a bounded timeout and refresh the stream
+    # once before declaring playback failed. This prevents the assistant from
+    # sitting in VC silently when a stale stream URL is returned.
+    playback_error = None
+
     for attempt in range(2):
 
         try:
 
             if is_video:
 
-                await call_py.play(
-                    chat_id,
-                    MediaStream(
-                        media_path,
-                        audio_parameters=AudioQuality.HIGH,
-                        video_parameters=VideoQuality.HD_720p,
+                await asyncio.wait_for(
+                    call_py.play(
+                        chat_id,
+                        MediaStream(
+                            media_path,
+                            audio_parameters=AudioQuality.HIGH,
+                            video_parameters=VideoQuality.HD_720p,
+                        ),
                     ),
+                    timeout=12,
                 )
 
             else:
                 # HIGH is fine; stream URL starts immediately (no local download)
-                await call_py.play(
-                    chat_id,
-                    MediaStream(
-                        media_path,
-                        audio_parameters=AudioQuality.HIGH,
-                        video_flags=MediaStream.Flags.IGNORE,
+                await asyncio.wait_for(
+                    call_py.play(
+                        chat_id,
+                        MediaStream(
+                            media_path,
+                            audio_parameters=AudioQuality.HIGH,
+                            video_flags=MediaStream.Flags.IGNORE,
+                        ),
                     ),
+                    timeout=12,
                 )
 
             played = True
@@ -394,7 +406,18 @@ async def play_song(
 
         except Exception as e:
 
+            playback_error = e
             err = str(e).lower()
+
+            # If a remote cached URL is stale/expired, resolve a fresh URL once.
+            # Do not add a download wait to the normal successful path.
+            if attempt == 0 and isinstance(media_path, str) and media_path.startswith("http"):
+                LOGGER.warning(f"[PLAY] Stream rejected/timeout; refreshing URL: {e}")
+                try:
+                    media_path = await resolve_stream(url, video=is_video)
+                    continue
+                except Exception as refresh_err:
+                    LOGGER.warning(f"[PLAY] Stream refresh failed: {refresh_err}")
 
             vc_missing = any(
                 x in err
