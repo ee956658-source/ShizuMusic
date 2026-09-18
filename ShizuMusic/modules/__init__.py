@@ -30,5 +30,6 @@ ALL_MODULES = [
     "pin",
     "vc",
     "moderation",
+    "games",
     
 ]
