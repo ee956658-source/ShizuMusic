@@ -171,7 +171,7 @@ class TicTacToe(BaseGame):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. CONNECT FOUR
+# 2. CONNECT FOUR  (style matched to @inlinegamesbot — red/blue, click board)
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ConnectFour(BaseGame):
@@ -183,7 +183,7 @@ class ConnectFour(BaseGame):
         self.board: List[List[str]] = [[" " for _ in range(self.COLS)] for _ in range(self.ROWS)]
 
     def mark(self) -> str:
-        return "🔴" if self.turn == 1 else "🟡"
+        return "🔴" if self.turn == 1 else "🔵"
 
     def make_move(self, col: int, uid: int) -> Tuple[bool, str]:
         if self.status != "playing":
@@ -192,7 +192,6 @@ class ConnectFour(BaseGame):
             return False, "Not your turn"
         if col < 0 or col >= self.COLS:
             return False, "Invalid column"
-        # find lowest empty row
         row = None
         for r in range(self.ROWS - 1, -1, -1):
             if self.board[r][col] == " ":
@@ -222,32 +221,40 @@ class ConnectFour(BaseGame):
                 c += dc
             return n
 
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
-        for dr, dc in directions:
+        for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
             if 1 + count(dr, dc) + count(-dr, -dc) >= 4:
                 return True
         return False
 
     def keyboard(self) -> InlineKeyboardMarkup:
-        # column drop buttons
-        drop = [
-            InlineKeyboardButton(str(c + 1), callback_data=f"g:c4:{self.game_id}:{c}")
-            for c in range(self.COLS)
-        ]
-        rows = [drop]
-        # board display as text buttons (read-only look)
+        rows = []
+        # Board only — click any empty cell in a column to drop (like original)
         for r in range(self.ROWS):
             row_btns = []
             for c in range(self.COLS):
                 cell = self.board[r][c]
-                label = cell if cell != " " else "⚪"
-                row_btns.append(
-                    InlineKeyboardButton(label, callback_data=f"g:noop:{self.game_id}")
-                )
+                if cell != " ":
+                    row_btns.append(
+                        InlineKeyboardButton(cell, callback_data=f"g:noop:{self.game_id}")
+                    )
+                else:
+                    # empty slot — clicking drops in this column
+                    row_btns.append(
+                        InlineKeyboardButton("⚪", callback_data=f"g:c4:{self.game_id}:{c}")
+                    )
             rows.append(row_btns)
+
         if self.status == "waiting":
             rows.append([
                 InlineKeyboardButton("🎮 Join Game", callback_data=f"g:join:{self.game_id}")
+            ])
+        elif self.status == "playing":
+            rows.append([
+                InlineKeyboardButton("Quit", callback_data=f"g:quit:{self.game_id}"),
+            ])
+        elif self.status == "finished":
+            rows.append([
+                InlineKeyboardButton("🔄 Play Again", callback_data=f"g:again:c4")
             ])
         return InlineKeyboardMarkup(rows)
 
@@ -256,7 +263,7 @@ class ConnectFour(BaseGame):
         p2 = self.player2_name or "Waiting…"
         if self.status == "waiting":
             return (
-                f"🔴🟡 <b>Connect Four</b>\n\n"
+                f"<b>Connect Four</b>\n\n"
                 f"Player 1: {p1}\n"
                 f"Player 2: {p2}\n\n"
                 f"Waiting for opponent to join…"
@@ -267,28 +274,27 @@ class ConnectFour(BaseGame):
             else:
                 result = f"🏆 Winner: <b>{self.name_of(self.winner)}</b>"
             return (
-                f"🔴🟡 <b>Connect Four</b> — Finished\n\n"
-                f"🔴 {self.player1_name}\n"
-                f"🟡 {self.player2_name}\n\n"
+                f"<b>Connect Four</b> — Finished\n\n"
+                f"🔴 {self.player1_name} vs 🔵 {self.player2_name}\n\n"
                 f"{result}"
             )
         turn_name = self.name_of(self.current_player())
+        mark = self.mark()
         return (
-            f"🔴🟡 <b>Connect Four</b>\n\n"
-            f"🔴 {self.player1_name}\n"
-            f"🟡 {self.player2_name}\n\n"
-            f"Turn: <b>{turn_name}</b> ({self.mark()})"
+            f"<b>Connect Four</b>\n\n"
+            f"🔴 {self.player1_name} vs 🔵 {self.player2_name}\n\n"
+            f"▶️ {turn_name} ({mark})"
         )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. ROCK-PAPER-SCISSORS
+# 3. ROCK-PAPER-SCISSORS  (Best of 3 — like original)
 # ══════════════════════════════════════════════════════════════════════════════
 
 RPS_CHOICES = {
-    "rock": "🪨 Rock",
-    "paper": "📄 Paper",
-    "scissors": "✂️ Scissors",
+    "rock": "🪨",
+    "paper": "📄",
+    "scissors": "✂️",
 }
 
 RPS_WINS = {
@@ -303,6 +309,11 @@ class RockPaperScissors(BaseGame):
         super().__init__(game_id=game_id, game_type="rps")
         self.choice1: Optional[str] = None
         self.choice2: Optional[str] = None
+        self.score1: int = 0
+        self.score2: int = 0
+        self.round: int = 1
+        self.target_wins: int = 3  # first to 3 wins
+        self.last_round_text: str = ""
 
     def make_choice(self, choice: str, uid: int) -> Tuple[bool, str]:
         if self.status != "playing":
@@ -319,15 +330,41 @@ class RockPaperScissors(BaseGame):
             self.choice2 = choice
         else:
             return False, "Not a player"
+
         if self.choice1 and self.choice2:
-            self.status = "finished"
-            if self.choice1 == self.choice2:
-                self.winner = 0
-            elif RPS_WINS[self.choice1] == self.choice2:
-                self.winner = self.player1
+            c1, c2 = self.choice1, self.choice2
+            if c1 == c2:
+                # Draw — score same rahega, game continue
+                self.last_round_text = (
+                    f"Round {self.round}: Draw ({RPS_CHOICES[c1]} vs {RPS_CHOICES[c2]})"
+                )
+            elif RPS_WINS[c1] == c2:
+                self.score1 += 1
+                self.last_round_text = (
+                    f"Round {self.round}: {self.player1_name} wins "
+                    f"({RPS_CHOICES[c1]} beats {RPS_CHOICES[c2]})"
+                )
             else:
+                self.score2 += 1
+                self.last_round_text = (
+                    f"Round {self.round}: {self.player2_name} wins "
+                    f"({RPS_CHOICES[c2]} beats {RPS_CHOICES[c1]})"
+                )
+
+            self.choice1 = None
+            self.choice2 = None
+            self.round += 1
+
+            # First to 3 wins — tabhi game khatam
+            if self.score1 >= self.target_wins:
+                self.status = "finished"
+                self.winner = self.player1
+                return True, "done"
+            if self.score2 >= self.target_wins:
+                self.status = "finished"
                 self.winner = self.player2
-            return True, "done"
+                return True, "done"
+            return True, "round"
         return True, "ok"
 
     def keyboard(self) -> InlineKeyboardMarkup:
@@ -337,16 +374,16 @@ class RockPaperScissors(BaseGame):
             ])
         if self.status == "finished":
             return InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔄 Play Again", callback_data=f"g:again:rps")]
+                [InlineKeyboardButton("🔄 Play Again", callback_data=f"g:again:rps")],
+                [InlineKeyboardButton("Quit", callback_data=f"g:quit:{self.game_id}")],
             ])
-        # show choices only if player hasn't chosen yet — but since it's shared message,
-        # we always show buttons; make_choice guards duplicates
         return InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("🪨 Rock", callback_data=f"g:rps:{self.game_id}:rock"),
                 InlineKeyboardButton("📄 Paper", callback_data=f"g:rps:{self.game_id}:paper"),
                 InlineKeyboardButton("✂️ Scissors", callback_data=f"g:rps:{self.game_id}:scissors"),
-            ]
+            ],
+            [InlineKeyboardButton("Quit", callback_data=f"g:quit:{self.game_id}")],
         ])
 
     def text(self) -> str:
@@ -354,31 +391,28 @@ class RockPaperScissors(BaseGame):
         p2 = self.player2_name or "Waiting…"
         if self.status == "waiting":
             return (
-                f"🪨📄✂️ <b>Rock-Paper-Scissors</b>\n\n"
+                f"<b>Rock-Paper-Scissors</b> (First to 3)\n\n"
                 f"Player 1: {p1}\n"
                 f"Player 2: {p2}\n\n"
                 f"Waiting for opponent to join…"
             )
         if self.status == "finished":
-            c1 = RPS_CHOICES.get(self.choice1 or "", "—")
-            c2 = RPS_CHOICES.get(self.choice2 or "", "—")
-            if self.winner == 0:
-                result = "🤝 It's a <b>Draw</b>!"
-            else:
-                result = f"🏆 Winner: <b>{self.name_of(self.winner)}</b>"
+            result = f"🏆 <b>{self.name_of(self.winner)}</b> won the game!"
             return (
-                f"🪨📄✂️ <b>Rock-Paper-Scissors</b> — Finished\n\n"
-                f"{self.player1_name}: {c1}\n"
-                f"{self.player2_name}: {c2}\n\n"
+                f"<b>Rock-Paper-Scissors</b> — Finished\n\n"
+                f"{self.player1_name}: {self.score1}\n"
+                f"{self.player2_name}: {self.score2}\n\n"
+                f"{self.last_round_text}\n"
                 f"{result}"
             )
-        s1 = "✅ Chosen" if self.choice1 else "⏳ Choosing…"
-        s2 = "✅ Chosen" if self.choice2 else "⏳ Choosing…"
+        s1 = "✅" if self.choice1 else "⏳"
+        s2 = "✅" if self.choice2 else "⏳"
         return (
-            f"🪨📄✂️ <b>Rock-Paper-Scissors</b>\n\n"
-            f"{self.player1_name}: {s1}\n"
-            f"{self.player2_name}: {s2}\n\n"
-            f"Both players — pick your move!"
+            f"<b>Rock-Paper-Scissors</b> — Round {self.round}\n\n"
+            f"{self.player1_name}: {self.score1}  {s1}\n"
+            f"{self.player2_name}: {self.score2}  {s2}\n\n"
+            f"{self.last_round_text}\n"
+            f"First to 3 wins — pick your move!"
         )
 
 
@@ -583,7 +617,7 @@ GAME_CLASSES = {
 
 GAME_TITLES = {
     "ttt": "❌⭕ Tic-Tac-Toe",
-    "c4": "🔴🟡 Connect Four",
+    "c4": "🔴🔵 Connect Four",
     "rps": "🪨📄✂️ Rock-Paper-Scissors",
     "rpsls": "🦎🖖 RPS Lizard-Spock",
     "rr": "🔫 Russian Roulette",
@@ -700,6 +734,40 @@ async def games_callback(_, cbq: CallbackQuery) -> None:
     # ── noop (board cells that do nothing) ────────────────────────────────────
     if action == "noop":
         await cbq.answer()
+        return
+
+    # ── Quit ──────────────────────────────────────────────────────────────────
+    if action == "quit":
+        if len(parts) < 3:
+            await cbq.answer()
+            return
+        gid = parts[2]
+        game = GAMES.get(gid)
+        if not game:
+            await cbq.answer("Game expired", show_alert=True)
+            return
+        if not game.is_player(user.id):
+            await cbq.answer("You are not in this game", show_alert=True)
+            return
+        game.status = "finished"
+        # opponent wins if someone quits
+        if user.id == game.player1:
+            game.winner = game.player2
+        else:
+            game.winner = game.player1
+        try:
+            await cbq.edit_message_text(
+                f"<b>Game ended</b>\n\n"
+                f"{user.first_name or 'Player'} quit.\n"
+                f"🏆 Winner: <b>{game.name_of(game.winner)}</b>",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Play Again", callback_data=f"g:again:{game.game_type}")]
+                ]),
+            )
+        except Exception:
+            pass
+        await cbq.answer("You quit the game")
         return
 
     # ── Play Again (create fresh lobby of same type) ──────────────────────────
@@ -822,5 +890,7 @@ async def games_callback(_, cbq: CallbackQuery) -> None:
 
     if msg in ("win", "draw", "dead", "done"):
         await cbq.answer("Game over!")
+    elif msg == "round":
+        await cbq.answer("Round over — next round!")
     else:
         await cbq.answer()
