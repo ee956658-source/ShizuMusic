@@ -143,16 +143,3 @@ async def kick_me(_, message: Message) -> None:
         await message.reply_text("👢 You have been kicked from the group.")
     except Exception as e:
         await message.reply_text(f"❌ Failed: <code>{escape(str(e))}</code>", parse_mode=enums.ParseMode.HTML)
-
-
-@bot.on_message(filters.group & filters.command("del"))
-async def delete_replied(_, message: Message) -> None:
-    if not await _caller_has(message, "can_delete_messages"):
-        return await message.reply_text("❌ You need delete-message permission.")
-    if not message.reply_to_message:
-        return await message.reply_text("Reply to a message with /del.")
-    try:
-        await message.reply_to_message.delete()
-        await message.delete()
-    except Exception as e:
-        await message.reply_text(f"❌ Failed: <code>{escape(str(e))}</code>", parse_mode=enums.ParseMode.HTML)
