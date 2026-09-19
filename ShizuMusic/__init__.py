@@ -11,7 +11,6 @@ import time
 
 from pyrogram import Client
 from pyrogram.enums import ParseMode
-from pytgcalls import PyTgCalls
 
 import config
 
@@ -48,4 +47,7 @@ assistant = Client(
 )
 
 # ── PyTgCalls ─────────────────────────────────────────────────────────────────
-call_py = PyTgCalls(assistant)
+# IMPORTANT: PyTgCalls creates asyncio primitives (including its ChatLock) in
+# its constructor.  It must therefore be instantiated inside the same running
+# event loop used by the bot/assistant, not while this module is imported.
+call_py = None
