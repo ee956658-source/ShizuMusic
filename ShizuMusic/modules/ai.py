@@ -1,7 +1,6 @@
 # --------------------------------------------------------------------------------
 # AI commands — Gemini + Groq fallback
 # /ai <question> and /ask <question>
-# NOTE: This file is isolated from the music/playback system.
 # --------------------------------------------------------------------------------
 from pyrogram import filters
 from pyrogram.types import Message
@@ -9,15 +8,14 @@ from pyrogram.types import Message
 from ShizuMusic import bot, LOGGER
 from ShizuMusic.utils.ai import ask_ai
 
-_AI_COMMAND_RE = r"^/(?:ai|ask)(?:@[A-Za-z0-9_]+)?(?:\s+[\s\S]*)?$"
-
 
 def _get_prompt(message: Message) -> str:
-    text = message.text or message.caption or ""
-    match = __import__("re").match(r"^/(?:ai|ask)(?:@[A-Za-z0-9_]+)?(?:\s+(.*))?$", text.strip(), __import__("re").IGNORECASE | __import__("re").DOTALL)
-    if match and match.group(1):
-        return match.group(1).strip()
+    # Normal command: /ai hello world
+    args = message.command[1:] if message.command else []
+    if args:
+        return " ".join(args).strip()
 
+    # Reply to a text and send only /ai
     reply = message.reply_to_message
     if reply and reply.text:
         return reply.text.strip()
@@ -26,9 +24,11 @@ def _get_prompt(message: Message) -> str:
     return ""
 
 
+@bot.on_message(filters.command(["ai", "ask"]))
 async def ai_cmd(client, message: Message) -> None:
-    LOGGER.info("========== AI COMMAND RECEIVED ==========")
-    LOGGER.info("AI command text: %r", message.text or message.caption or "")
+    # Keep this log deliberately before every other AI operation so Railway
+    # immediately tells us whether Telegram updates are reaching this handler.
+    LOGGER.info("AI COMMAND RECEIVED: %r", message.text or message.caption or "")
 
     prompt = _get_prompt(message)
     if not prompt:
@@ -39,23 +39,30 @@ async def ai_cmd(client, message: Message) -> None:
         return
 
     if len(prompt) > 12000:
-        await message.reply_text("✦ Your prompt is too long. Please keep it under 12,000 characters.")
+        await message.reply_text(
+            "✦ Your prompt is too long. Please keep it under 12,000 characters."
+        )
         return
 
     status = await message.reply_text("✦ <i>Thinking…</i>")
     try:
         answer, provider = await ask_ai(prompt)
+        LOGGER.info("AI RESPONSE SUCCESS: provider=%s", provider)
+
         header = f"✦ <b>AI • {provider}</b>\n\n"
         chunks = [answer[i:i + 3900] for i in range(0, len(answer), 3900)] or [""]
+
         await status.delete()
         for i, chunk in enumerate(chunks):
             prefix = header if i == 0 else "✦ <b>AI</b>\n\n"
             try:
                 await message.reply_text(prefix + chunk)
             except Exception:
+                # Fallback if an AI response contains unsupported Telegram HTML.
                 await message.reply_text(prefix + chunk, parse_mode=None)
-    except Exception:
-        LOGGER.exception("AI command failed")
+
+    except Exception as exc:
+        LOGGER.exception("AI COMMAND FAILED: %s", exc)
         try:
             await status.edit_text(
                 "✦ <b>AI unavailable</b>\n\n"
@@ -64,13 +71,3 @@ async def ai_cmd(client, message: Message) -> None:
             )
         except Exception:
             pass
-
-
-# Use a raw regex instead of filters.command so Telegram command parsing cannot
-# prevent /ai or /ask from reaching this handler.
-@bot.on_message(filters.regex(r"^/(?:ai|ask)(?:@\w+)?(?:\s+[\s\S]*)?$"))
-async def _ai_message_handler(client, message: Message) -> None:
-    await ai_cmd(client, message)
-
-
-LOGGER.info("========== AI HANDLER ACTIVE ==========")
