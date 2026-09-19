@@ -8,6 +8,7 @@
 
 import asyncio
 import importlib
+import inspect
 import os
 import re
 import sys
@@ -101,8 +102,7 @@ async def _notify_owner(me, assistant_username: str) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-
+async def _main() -> None:
     # 1. MongoDB
     try:
         from ShizuMusic.utils.db import start_mongo
@@ -122,35 +122,67 @@ if __name__ == "__main__":
     threading.Thread(target=_keep_alive, daemon=True).start()
     LOGGER.info("Keep-alive thread started")
 
-    # 4. PyTgCalls
-    call_py.start()
-    LOGGER.info("PyTgCalls started")
+    # 4. Start Bot + Assistant on ONE running event loop.
+    # Kurigram binds a Client to the loop on which start() is awaited. Starting
+    # them with the synchronous wrapper leaves the assistant bound to a stopped
+    # loop, which breaks assistant calls from bot handlers (JOIN ERROR / loop mismatch).
+    try:
+        for attempt in range(10):
+            try:
+                await bot.start()
+                LOGGER.info("Bot client started")
+                break
+            except Exception as e:
+                if "FLOOD_WAIT" in str(e):
+                    m = re.search(r"(\d+)", str(e))
+                    wait = min(int(m.group(1)) + 5 if m else 300, 1800)
+                    LOGGER.warning(
+                        f"FLOOD_WAIT — sleeping {wait}s (attempt {attempt + 1}/10)"
+                    )
+                    await asyncio.sleep(wait)
+                else:
+                    LOGGER.error(f"Bot start failed: {e}")
+                    raise
+        else:
+            raise RuntimeError("Bot failed to start after 10 attempts")
 
-    # 5. Bot start (with FLOOD_WAIT retry)
-    for attempt in range(10):
+        await assistant.start()
+        LOGGER.info("Assistant client started")
+
+        # PyTgCalls was created before the async loop existed, so point its loop
+        # at the same live loop before starting it.
+        call_py.loop = asyncio.get_running_loop()
+        result = call_py.start()
+        if inspect.isawaitable(result):
+            await result
+        LOGGER.info("PyTgCalls started")
+
+        LOGGER.info(
+            "Event loops: bot=%s assistant=%s pytgcalls=%s",
+            id(getattr(bot, "_loop", None)),
+            id(getattr(assistant, "_loop", None)),
+            id(getattr(call_py, "loop", None)),
+        )
+    except Exception as e:
+        LOGGER.error(f"Client startup failed: {e}", exc_info=True)
         try:
-            bot.start()
-            LOGGER.info("Bot client started")
-            break
-        except Exception as e:
-            if "FLOOD_WAIT" in str(e):
-                m    = re.search(r"(\d+)", str(e))
-                wait = min(int(m.group(1)) + 5 if m else 300, 1800)
-                LOGGER.warning(f"FLOOD_WAIT — sleeping {wait}s (attempt {attempt + 1}/10)")
-                time.sleep(wait)
-            else:
-                LOGGER.error(f"Bot start failed: {e}")
-                sys.exit(1)
-    else:
-        LOGGER.error("Bot failed to start after 10 attempts")
+            if assistant.is_connected:
+                await assistant.stop()
+        except Exception:
+            pass
+        try:
+            if bot.is_connected:
+                await bot.stop()
+        except Exception:
+            pass
         sys.exit(1)
 
-    me = bot.get_me()
+    me = await bot.get_me()
     LOGGER.info(f"Bot: @{me.username}")
 
-    # 6. Set bot commands
+    # 5. Set bot commands
     try:
-        bot.set_bot_commands([
+        await bot.set_bot_commands([
             BotCommand("start",  "✧ sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ ✧"),
             BotCommand("help",   "✧ ɢᴇᴛ ʜᴇʟᴘ ᴍᴇɴᴜ ✧"),
             BotCommand("ai",     "✧ ᴀsᴋ ᴀɪ ✧"),
@@ -166,18 +198,15 @@ if __name__ == "__main__":
     except Exception as e:
         LOGGER.warning(f"Could not set bot commands: {e}")
 
-    # 7. Assistant
+    # 6. Assistant identity
     try:
-        if not assistant.is_connected:
-            assistant.start()
-        am = assistant.get_me()
+        am = await assistant.get_me()
         ASSISTANT_USERNAME = am.username or ""
         LOGGER.info(f"Assistant: @{ASSISTANT_USERNAME}")
     except Exception as e:
-        LOGGER.error(f"Assistant start failed: {e}")
-        sys.exit(1)
+        LOGGER.error(f"Assistant identity check failed: {e}")
 
-    # 8. Block middleware — MUST run before plugins load
+    # 7. Block middleware — MUST run before plugins load
     try:
         from ShizuMusic.utils.decorators import register_block_middleware
         register_block_middleware()
@@ -185,43 +214,45 @@ if __name__ == "__main__":
     except Exception as e:
         LOGGER.warning(f"Block middleware load failed: {e}")
 
-    # 9. Load modules
+    # 8. Load modules
     for mod in ALL_MODULES:
         try:
             importlib.import_module(f"ShizuMusic.modules.{mod}")
             LOGGER.info(f"Loaded module: {mod}")
         except Exception as e:
-            LOGGER.error(f"Failed to load module {mod}: {e}")
+            LOGGER.error(f"Failed to load module {mod}: {e}", exc_info=True)
 
-    # 10. Stream-end handler
+    # 9. Stream-end handler
     try:
         import ShizuMusic.core.call  # noqa: F401
     except Exception as e:
-        LOGGER.error(f"Failed to load call handler: {e}")
+        LOGGER.error(f"Failed to load call handler: {e}", exc_info=True)
 
-    # 11. Notify owner
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_notify_owner(me, ASSISTANT_USERNAME))
+    # 10. Notify owner
+    await _notify_owner(me, ASSISTANT_USERNAME)
 
-    # 12. Watchdog
+    # 11. Watchdog
     from ShizuMusic.core.watcher import watchdog
-    loop.create_task(watchdog())
+    asyncio.create_task(watchdog())
     LOGGER.info("Watchdog started")
 
     LOGGER.info("ShizuMusic is running")
 
-    idle()
-
-    # ── Graceful shutdown ─────────────────────────────────────────────────────
     try:
-        bot.stop()
-    except Exception:
-        pass
+        await idle()
+    finally:
+        try:
+            await bot.stop()
+        except Exception:
+            pass
 
-    try:
-        assistant.stop()
-    except Exception:
-        pass
+        try:
+            await assistant.stop()
+        except Exception:
+            pass
 
-    LOGGER.info("✧ ShizuMusic stopped ✧")
-            
+        LOGGER.info("✧ ShizuMusic stopped ✧")
+
+
+if __name__ == "__main__":
+    asyncio.run(_main())
