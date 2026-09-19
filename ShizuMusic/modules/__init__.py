@@ -31,5 +31,6 @@ ALL_MODULES = [
     "vc",
     "moderation",
     "games",
+    "ai",
     
 ]
