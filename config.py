@@ -62,3 +62,14 @@ COOLDOWN             = 2      # seconds between /play per chat (fast bots use 2-
 #    ".go",
 #    ".php",
 #]
+
+
+# ── AI Providers (optional) ────────────────────────────────────────────────
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+AI_TIMEOUT = float(os.getenv("AI_TIMEOUT", "45"))
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1200"))
+AI_SYSTEM_PROMPT = os.getenv("AI_SYSTEM_PROMPT", "You are the helpful AI assistant inside a Telegram music bot. Answer clearly, accurately, and concisely. Do not claim to have abilities you do not have.")
