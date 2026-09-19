@@ -19,9 +19,11 @@ import requests
 from flask import Flask
 from pyrogram import idle
 from pyrogram.types import BotCommand
+from pytgcalls import PyTgCalls
 
 import config
-from ShizuMusic import LOGGER, assistant, bot, call_py
+import ShizuMusic as app
+from ShizuMusic import LOGGER, assistant, bot
 from ShizuMusic.modules import ALL_MODULES
 from ShizuMusic.utils.rich_ui import (
     rich_esc,
@@ -149,9 +151,13 @@ async def _main() -> None:
         await assistant.start()
         LOGGER.info("Assistant client started")
 
-        # PyTgCalls was created before the async loop existed, so point its loop
-        # at the same live loop before starting it.
-        call_py.loop = asyncio.get_running_loop()
+        # IMPORTANT: construct PyTgCalls only after asyncio.run() has created
+        # the live loop. Its constructor creates asyncio primitives (notably
+        # ChatLock); merely assigning call_py.loop afterwards is not enough.
+        # Constructing it here keeps those primitives on the same loop used by
+        # /play and all other voice-chat handlers.
+        app.call_py = PyTgCalls(assistant)
+        call_py = app.call_py
         result = call_py.start()
         if inspect.isawaitable(result):
             await result
