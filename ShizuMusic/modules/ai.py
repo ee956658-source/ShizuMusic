@@ -8,7 +8,6 @@ from pyrogram import filters
 from pyrogram.types import Message
 
 from ShizuMusic import bot, LOGGER
-from ShizuMusic.modules.block import is_user_blocked_db
 from ShizuMusic.utils.ai import ask_ai
 
 def _get_prompt(message: Message) -> str:
@@ -24,18 +23,7 @@ def _get_prompt(message: Message) -> str:
 
 @bot.on_message(filters.command(["ai", "ask"]))
 async def ai_cmd(client, message: Message) -> None:
-    # Keep the command filter independent from the optional blocked-user filter.
-    # This makes /ai reachable even if the custom DB filter is unavailable.
-    try:
-        if message.from_user and is_user_blocked_db(message.from_user.id):
-            return
-    except Exception:
-        # Never let the block-check prevent the AI command from being handled.
-        pass
-
-    LOGGER.info("AI command received from user=%s chat=%s",
-                getattr(message.from_user, "id", None),
-                getattr(message.chat, "id", None))
+    LOGGER.info("AI command received: %s", message.text or message.caption or "<empty>")
     prompt = _get_prompt(message)
     if not prompt:
         await message.reply_text(
