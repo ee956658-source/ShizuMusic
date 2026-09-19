@@ -3,20 +3,18 @@
 # /ai <question> and /ask <question>
 # NOTE: This file is isolated from the music/playback system.
 # --------------------------------------------------------------------------------
-import re
-
 from pyrogram import filters
 from pyrogram.types import Message
 
 from ShizuMusic import bot, LOGGER
 from ShizuMusic.utils.ai import ask_ai
 
-_AI_COMMAND_RE = re.compile(r"^/(?:ai|ask)(?:@[A-Za-z0-9_]+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
+_AI_COMMAND_RE = r"^/(?:ai|ask)(?:@[A-Za-z0-9_]+)?(?:\s+[\s\S]*)?$"
 
 
 def _get_prompt(message: Message) -> str:
     text = message.text or message.caption or ""
-    match = _AI_COMMAND_RE.match(text.strip())
+    match = __import__("re").match(r"^/(?:ai|ask)(?:@[A-Za-z0-9_]+)?(?:\s+(.*))?$", text.strip(), __import__("re").IGNORECASE | __import__("re").DOTALL)
     if match and match.group(1):
         return match.group(1).strip()
 
@@ -70,7 +68,7 @@ async def ai_cmd(client, message: Message) -> None:
 
 # Use a raw regex instead of filters.command so Telegram command parsing cannot
 # prevent /ai or /ask from reaching this handler.
-@bot.on_message(filters.regex(_AI_COMMAND_RE))
+@bot.on_message(filters.regex(r"^/(?:ai|ask)(?:@\w+)?(?:\s+[\s\S]*)?$"))
 async def _ai_message_handler(client, message: Message) -> None:
     await ai_cmd(client, message)
 
