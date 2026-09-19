@@ -103,7 +103,7 @@ async def stop_filter(_, message: Message) -> None:
 @bot.on_message(
     filters.group
     & filters.text
-    & ~filters.command(["filter", "stop"])
+    & ~filters.regex(r"^\s*/")
 )
 async def trigger_filter(_, message: Message) -> None:
     if not message.text:
