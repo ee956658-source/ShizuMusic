@@ -28,6 +28,7 @@ ALL_MODULES = [
     "seek",
     "filter",
     "pin",
+    "delete",
     "group_moderation",
     "admin_action",
     "staff",
