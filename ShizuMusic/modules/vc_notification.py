@@ -8,52 +8,50 @@ from ShizuMusic import bot
 
 
 async def _safe_reply(message: Message, text: str) -> None:
-    """Reply to VC service messages without letting notification errors affect the bot."""
     try:
         if not message.chat or message.chat.type == ChatType.CHANNEL:
             return
-        await message.reply_text(text, parse_mode=ParseMode.HTML)
+
+        await message.reply_text(
+            text,
+            parse_mode=ParseMode.HTML,
+        )
     except Exception:
-        # VC notifications are auxiliary; never break other handlers if Telegram
-        # refuses the reply or the service message cannot be replied to.
-        return
+        pass
 
 
-@bot.on_message(filters.group & filters.video_chat_started)
-async def voice_chat_started(_, message: Message):
+@bot.on_message(filters.video_chat_started & filters.group)
+async def on_voice_chat_started(_, message: Message):
     await _safe_reply(
         message,
         "🎙️ <b>VOICE CHAT HAS STARTED!</b>",
     )
 
 
-@bot.on_message(filters.group & filters.video_chat_ended)
-async def voice_chat_ended(_, message: Message):
+@bot.on_message(filters.video_chat_ended & filters.group)
+async def on_voice_chat_ended(_, message: Message):
     await _safe_reply(
         message,
         "🔕 <b>VOICE CHAT ENDED.</b>",
     )
 
 
-@bot.on_message(filters.group & filters.video_chat_members_invited)
-async def voice_chat_members_invited(_, message: Message):
-    service = getattr(message, "video_chat_members_invited", None)
-    users = getattr(service, "users", None) or []
-
-    if not users:
-        return
+@bot.on_message(filters.video_chat_members_invited & filters.group)
+async def on_voice_chat_members_invited(_, message: Message):
+    inviter = "Someone"
 
     if message.from_user:
-        inviter_name = message.from_user.first_name or "Someone"
+        name = escape(message.from_user.first_name or "Someone")
         inviter = (
             f'<a href="tg://user?id={message.from_user.id}">'
-            f"{escape(inviter_name)}"
-            "</a>"
+            f"{name}</a>"
         )
-    else:
-        inviter = "Someone"
+
+    vcmi = getattr(message, "video_chat_members_invited", None)
+    users = getattr(vcmi, "users", None) or []
 
     invited = []
+
     for user in users:
         try:
             name = escape(user.first_name or "User")
@@ -63,11 +61,9 @@ async def voice_chat_members_invited(_, message: Message):
         except Exception:
             continue
 
-    if not invited:
-        return
-
-    await _safe_reply(
-        message,
-        f"👥 {inviter} <b>INVITED</b> {', '.join(invited)} "
-        "TO THE VOICE CHAT. 😉",
-    )
+    if invited:
+        await _safe_reply(
+            message,
+            f"👥 {inviter} <b>INVITED</b> "
+            f"{', '.join(invited)} TO THE VOICE CHAT. 😉",
+        )
