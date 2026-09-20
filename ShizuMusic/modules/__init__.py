@@ -37,6 +37,7 @@ ALL_MODULES = [
     "chat_blocklist",
     "tagging",
     "vc_controls",
+    "vc_notifications",
     "games",
     "ai",
     
