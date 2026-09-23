@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import textwrap
 from pathlib import Path
 
@@ -40,12 +41,65 @@ def _circle_crop(image: Image.Image, size: int) -> Image.Image:
     return out
 
 
+def _thumbnail_candidates(url: str) -> list[str]:
+    """Return several known-good YouTube thumbnail URLs.
+
+    Some YouTube search results expose a thumbnail variant that can be opened by
+    Telegram but intermittently fails when fetched by aiohttp.  When possible,
+    derive the video id and try the stable img.youtube.com variants as well.
+    """
+    clean = (url or "").split("?", 1)[0].strip()
+    candidates: list[str] = []
+
+    def add(value: str):
+        if value and value not in candidates:
+            candidates.append(value)
+
+    add(clean)
+
+    # i.ytimg.com/vi/<id>/<variant>.jpg
+    match = re.search(r"(?:i\.ytimg\.com|img\.youtube\.com)/vi/([^/]+)/", clean)
+    if match:
+        video_id = match.group(1)
+        for variant in ("maxresdefault.jpg", "hq720.jpg", "sddefault.jpg", "hqdefault.jpg"):
+            add(f"https://i.ytimg.com/vi/{video_id}/{variant}")
+            add(f"https://img.youtube.com/vi/{video_id}/{variant}")
+
+    return candidates
+
+
 async def _download(url: str) -> bytes:
-    timeout = aiohttp.ClientTimeout(total=15)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as resp:
-            resp.raise_for_status()
-            return await resp.read()
+    timeout = aiohttp.ClientTimeout(total=15, connect=8, sock_read=12)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+        ),
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Referer": "https://www.youtube.com/",
+    }
+
+    last_error = None
+    async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+        for candidate in _thumbnail_candidates(url):
+            for attempt in range(2):
+                try:
+                    async with session.get(candidate, allow_redirects=True) as resp:
+                        if resp.status != 200:
+                            raise RuntimeError(f"HTTP {resp.status}")
+                        raw = await resp.read()
+                        if len(raw) < 1024:
+                            raise RuntimeError("thumbnail response was too small")
+                        # Verify that the bytes really are an image before using them.
+                        with Image.open(io.BytesIO(raw)) as image:
+                            image.verify()
+                        return raw
+                except Exception as exc:
+                    last_error = exc
+                    if attempt == 0:
+                        continue
+
+    raise RuntimeError(f"could not download thumbnail: {last_error}")
 
 
 def _build(raw: bytes, title: str, duration: str) -> str:
