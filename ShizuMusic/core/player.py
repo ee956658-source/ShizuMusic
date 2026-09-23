@@ -133,6 +133,13 @@ async def _update_progress(
 
         elapsed = min(time.time() - start_t, total)
         kb = _now_playing_kb(elapsed, total)
+        # Keep the Close button when the progress updater refreshes the
+        # keyboard. Otherwise the updater would replace the initial keyboard
+        # after ~18 seconds and the Close button would disappear.
+        kb = InlineKeyboardMarkup(
+            list(kb.inline_keyboard)
+            + [[InlineKeyboardButton("Close", callback_data="close_player")]]
+        )
 
         try:
             # Player messages are sent as photos so the generated/edit thumbnail
