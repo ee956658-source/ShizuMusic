@@ -5,6 +5,7 @@ import io
 import os
 import re
 import textwrap
+import tempfile
 from pathlib import Path
 
 import aiohttp
@@ -163,11 +164,72 @@ def _build(raw: bytes, title: str, duration: str) -> str:
     return str(out)
 
 
-async def make_player_thumbnail(url: str, title: str, duration: str) -> str | None:
+async def _download_via_telegram(bot, chat_id: int, url: str) -> bytes:
+    """Use Telegram as a relay when the hosting server cannot fetch YouTube.
+
+    Telegram can often fetch the same thumbnail URL even when the bot host's
+    outbound DNS/network cannot. The temporary message is deleted immediately
+    after its photo is downloaded.
+    """
+    temp = None
+    tmp_path = None
+    try:
+        temp = await bot.send_photo(chat_id, photo=url)
+        fd, tmp_path = tempfile.mkstemp(prefix="shizu_thumb_", suffix=".jpg")
+        os.close(fd)
+        downloaded = await bot.download_media(temp, file_name=tmp_path)
+        if not downloaded:
+            raise RuntimeError("Telegram thumbnail download returned no file")
+        raw = Path(downloaded).read_bytes()
+        with Image.open(io.BytesIO(raw)) as image:
+            image.verify()
+        return raw
+    finally:
+        if temp is not None:
+            try:
+                await temp.delete()
+            except Exception:
+                pass
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
+async def make_player_thumbnail(
+    url: str,
+    title: str,
+    duration: str,
+    bot=None,
+    chat_id: int | None = None,
+) -> str | None:
     if not url:
         return None
+
     try:
         raw = await _download(url)
         return _build(raw, title, duration)
-    except Exception:
-        return None
+    except Exception as direct_error:
+        # Do not silently fall back to Telegram's raw YouTube thumbnail.
+        # Relay it through Telegram and build the branded card from the bytes.
+        if bot is not None and chat_id is not None:
+            try:
+                raw = await _download_via_telegram(bot, chat_id, url)
+                return _build(raw, title, duration)
+            except Exception as relay_error:
+                try:
+                    from ShizuMusic import LOGGER
+                    LOGGER.warning(
+                        f"[PLAYER THUMB] generation failed: direct={direct_error!r}, relay={relay_error!r}"
+                    )
+                except Exception:
+                    pass
+        else:
+            try:
+                from ShizuMusic import LOGGER
+                LOGGER.warning(f"[PLAYER THUMB] direct generation failed: {direct_error!r}")
+            except Exception:
+                pass
+
+    return None
