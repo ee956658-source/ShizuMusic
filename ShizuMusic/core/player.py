@@ -589,6 +589,8 @@ async def play_song(
         song.get("thumbnail", ""),
         song.get("title", "Unknown Song"),
         song.get("duration", "0:00"),
+        bot=bot,
+        chat_id=chat_id,
     )
 
     content = _now_playing_content(song)
